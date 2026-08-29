@@ -9,9 +9,19 @@
 
   let canvasEl = $state<HTMLCanvasElement | null>(null);
   let containerEl = $state<HTMLDivElement | null>(null);
-  
-  // 1. Preload the Sprite Sheet Image
+
+  // Preload the Sprite Sheet Image
   let spriteSheet = $state<HTMLImageElement | null>(null);
+
+  // --- Pan & Zoom Transform State ---
+  let zoomScale = $state<number>(1);
+  let panOffset = $state<{ x: number; y: number }>({ x: 0, y: 0 });
+  let isDragging = $state<boolean>(false);
+  let dragStart = { x: 0, y: 0 };
+
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 4;
+  const ZOOM_STEP = 0.25;
 
   onMount(() => {
     const img = new Image();
@@ -25,6 +35,132 @@
     render();
     return () => window.removeEventListener('resize', render);
   });
+
+  function clampPan(x: number, y: number, scale: number): { x: number; y: number } {
+    if (!canvasEl) return { x: 0, y: 0 };
+    
+    // Calculate boundaries to prevent panning beyond canvas edges
+    const maxPanX = (canvasEl.width * (scale - 1)) / 2;
+    const maxPanY = (canvasEl.height * (scale - 1)) / 2;
+
+    return {
+      x: Math.max(-maxPanX, Math.min(maxPanX, x)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, y))
+    };
+  }
+
+  function handleZoom(deltaScale: number, mouseCanvasX?: number, mouseCanvasY?: number) {
+    if (!canvasEl) return;
+
+    const oldScale = zoomScale;
+    const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, oldScale + deltaScale));
+
+    if (newScale === oldScale) return;
+
+    if (newScale === 1) {
+      // Reset pan when fully zoomed out
+      zoomScale = 1;
+      panOffset = { x: 0, y: 0 };
+      render();
+      return;
+    }
+
+    // Default target center of canvas if mouse position is not provided
+    const targetX = mouseCanvasX ?? canvasEl.width / 2;
+    const targetY = mouseCanvasY ?? canvasEl.height / 2;
+
+    // Zoom relative to target coordinate
+    const factor = newScale / oldScale;
+    const newPanX = targetX - factor * (targetX - panOffset.x);
+    const newPanY = targetY - factor * (targetY - panOffset.y);
+
+    zoomScale = newScale;
+    panOffset = clampPan(newPanX, newPanY, newScale);
+    render();
+  }
+
+  function resetZoom() {
+    zoomScale = 1;
+    panOffset = { x: 0, y: 0 };
+    render();
+  }
+
+  function handleWheel(e: WheelEvent) {
+    e.preventDefault();
+    if (!canvasEl) return;
+
+    const rect = canvasEl.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left) * (canvasEl.width / rect.width);
+    const mouseY = (e.clientY - rect.top) * (canvasEl.height / rect.height);
+
+    const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+    handleZoom(delta, mouseX, mouseY);
+  }
+
+  function handleMouseDown(e: MouseEvent) {
+    if (e.button !== 0 || zoomScale === 1) return; // Only drag when zoomed in
+    isDragging = true;
+    dragStart = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!canvasEl || !containerEl) return;
+
+    // Handle Panning
+    if (isDragging) {
+      const rawX = e.clientX - dragStart.x;
+      const rawY = e.clientY - dragStart.y;
+      panOffset = clampPan(rawX, rawY, zoomScale);
+      render();
+    }
+
+    // Transform Screen Mouse Coordinates to Canvas Internal Space (accounting for Pan & Zoom)
+    const rect = canvasEl.getBoundingClientRect();
+    const rawMouseX = (e.clientX - rect.left) * (canvasEl.width / rect.width);
+    const rawMouseY = (e.clientY - rect.top) * (canvasEl.height / rect.height);
+
+    const centerX = canvasEl.width / 2;
+    const centerY = canvasEl.height / 2;
+
+    const mousePt = {
+      x: (rawMouseX - centerX - panOffset.x) / zoomScale + centerX,
+      y: (rawMouseY - centerY - panOffset.y) / zoomScale + centerY
+    };
+
+    const { gridCols, gridRows, orientation, hexes } = mapStore;
+    const sidePadding = 48;
+    const maxW = (containerEl.clientWidth || 800) - sidePadding * 2;
+    const maxH = (containerEl.clientHeight || 800) - sidePadding * 2;
+
+    let hexRadius = orientation === 'pointy'
+      ? Math.min(maxW / ((gridCols + 0.5) * Math.sqrt(3)), maxH / (gridRows * 1.5 + 0.5))
+      : Math.min(maxW / (gridCols * 1.5 + 0.5), maxH / ((gridRows + 0.5) * Math.sqrt(3)));
+
+    hexRadius = Math.max(24, Math.min(65, hexRadius));
+    const geo = calculateHexGeometry(orientation, hexRadius);
+    const originX = sidePadding + geo.width / 2;
+    const originY = sidePadding + geo.height / 2;
+
+    let found: typeof hexes[0] | null = null;
+    for (const hex of hexes) {
+      const center = getRectHexCenter(hex.col, hex.row, geo, orientation, originX, originY);
+      const corners = getHexCorners(center, geo.radius, orientation);
+      if (isPointInPolygon(mousePt, corners)) {
+        found = hex;
+        break;
+      }
+    }
+    mapStore.hoveredHex = found;
+  }
+
+  function handleMouseUp() {
+    isDragging = false;
+  }
+
+  function handleMouseLeave() {
+    isDragging = false;
+    mapStore.hoveredHex = null;
+  }
 
   function render() {
     if (!canvasEl || !containerEl) return;
@@ -58,10 +194,19 @@
 
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
-    // Turn on pixelated rendering for clean 16x16 sprites
+    // Apply Viewport Zoom & Pan Transformations
+    ctx.save();
+    const centerX = canvasEl.width / 2;
+    const centerY = canvasEl.height / 2;
+
+    ctx.translate(centerX + panOffset.x, centerY + panOffset.y);
+    ctx.scale(zoomScale, zoomScale);
+    ctx.translate(-centerX, -centerY);
+
+    // Pixelated crisp rendering for sprites
     ctx.imageSmoothingEnabled = false;
 
-    // 1. Base Hex Tiles & Bitmap Overlay Pipeline
+    // 1. Base Hex Tiles & Bitmap Overlay
     hexes.forEach((hex) => {
       const biome = mapStore.getBiomeConfig(hex.biomeId);
       const center = getRectHexCenter(hex.col, hex.row, geo, orientation, originX, originY);
@@ -92,13 +237,11 @@
         ctx.fillStyle = hexColor;
         ctx.fill();
 
-        // 2. Render Sprite or Fallback Emoji/Text
         if (iconKey) {
           const coord = SPRITE_MAP[iconKey];
 
           if (coord && spriteSheet) {
-            // Standard 16x16 pixel sprite slice inside a 4x4 sheet
-            const tileSize = spriteSheet.width / 4; 
+            const tileSize = spriteSheet.width / 4;
             const sourceX = coord.col * tileSize;
             const sourceY = coord.row * tileSize;
 
@@ -112,7 +255,6 @@
               drawX, drawY, renderSize, renderSize
             );
           } else {
-            // Fallback for Fantasy/Sci-Fi themes using native unicode emojis
             ctx.fillStyle = iconColor;
             ctx.font = `bold ${Math.round(geo.radius * 0.7)}px sans-serif`;
             ctx.textAlign = 'center';
@@ -134,7 +276,7 @@
 
       const isHovered = hoveredHex && hoveredHex.col === hex.col && hoveredHex.row === hex.row;
       ctx.strokeStyle = isHovered ? '#38bdf8' : 'rgba(0, 0, 0, 0.35)';
-      ctx.lineWidth = isHovered ? 3 : 1.2;
+      ctx.lineWidth = isHovered ? 3 / zoomScale : 1.2 / zoomScale;
       ctx.stroke();
 
       // Coordinate Label
@@ -173,7 +315,7 @@
       ctx.fillStyle = hex.poi.color;
       ctx.fill();
       ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 / zoomScale;
       ctx.stroke();
 
       const coord = SPRITE_MAP[hex.poi.icon];
@@ -195,44 +337,8 @@
         ctx.fillText(hex.poi.icon, center.x, center.y + geo.radius * 0.25 + 1);
       }
     });
-  }
 
-  function handleMouseMove(e: MouseEvent) {
-    if (!canvasEl || !containerEl) return;
-    const rect = canvasEl.getBoundingClientRect();
-    const mousePt = {
-      x: (e.clientX - rect.left) * (canvasEl.width / rect.width),
-      y: (e.clientY - rect.top) * (canvasEl.height / rect.height)
-    };
-
-    const { gridCols, gridRows, orientation, hexes } = mapStore;
-    const sidePadding = 48;
-    const maxW = (containerEl.clientWidth || 800) - sidePadding * 2;
-    const maxH = (containerEl.clientHeight || 800) - sidePadding * 2;
-
-    let hexRadius = orientation === 'pointy'
-      ? Math.min(maxW / ((gridCols + 0.5) * Math.sqrt(3)), maxH / (gridRows * 1.5 + 0.5))
-      : Math.min(maxW / (gridCols * 1.5 + 0.5), maxH / ((gridRows + 0.5) * Math.sqrt(3)));
-
-    hexRadius = Math.max(24, Math.min(65, hexRadius));
-    const geo = calculateHexGeometry(orientation, hexRadius);
-    const originX = sidePadding + geo.width / 2;
-    const originY = sidePadding + geo.height / 2;
-
-    let found: typeof hexes[0] | null = null;
-    for (const hex of hexes) {
-      const center = getRectHexCenter(hex.col, hex.row, geo, orientation, originX, originY);
-      const corners = getHexCorners(center, geo.radius, orientation);
-      if (isPointInPolygon(mousePt, corners)) {
-        found = hex;
-        break;
-      }
-    }
-    mapStore.hoveredHex = found;
-  }
-
-  function handleMouseLeave() {
-    mapStore.hoveredHex = null;
+    ctx.restore(); // Restore world transform state
   }
 
   $effect(() => {
@@ -245,16 +351,31 @@
       curves: mapStore.curves,
       hover: mapStore.hoveredHex,
       overrides: mapStore.customOverrides,
-      sheet: spriteSheet
+      sheet: spriteSheet,
+      zoom: zoomScale,
+      pan: panOffset
     };
     render();
   });
 </script>
 
 <div class="viewport" bind:this={containerEl}>
+  <!-- Top-Right Zoom Control Overlay -->
+  <div class="zoom-controls">
+    <button type="button" class="zoom-btn" onclick={() => handleZoom(ZOOM_STEP)} title="Zoom In">+</button>
+    <span class="zoom-level">{Math.round(zoomScale * 100)}%</span>
+    <button type="button" class="zoom-btn" onclick={() => handleZoom(-ZOOM_STEP)} title="Zoom Out">−</button>
+    <button type="button" class="reset-btn" onclick={resetZoom} title="Reset View">Reset</button>
+  </div>
+
   <canvas
     bind:this={canvasEl}
+    class:grab={zoomScale > 1 && !isDragging}
+    class:grabbing={isDragging}
+    onwheel={handleWheel}
+    onmousedown={handleMouseDown}
     onmousemove={handleMouseMove}
+    onmouseup={handleMouseUp}
     onmouseleave={handleMouseLeave}
   ></canvas>
 </div>
@@ -272,10 +393,78 @@
     overflow: hidden;
   }
 
+  /* Top-Right Floating Controls */
+  .zoom-controls {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16, 22, 34, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 6px 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    user-select: none;
+  }
+
+  .zoom-btn, .reset-btn {
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+  }
+
+  .zoom-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .reset-btn {
+    padding: 0 8px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .zoom-btn:hover, .reset-btn:hover {
+    background: #334155;
+    border-color: #38bdf8;
+  }
+
+  .zoom-btn:active, .reset-btn:active {
+    transform: scale(0.95);
+  }
+
+  .zoom-level {
+    color: #94a3b8;
+    font-size: 12px;
+    font-family: monospace;
+    min-width: 38px;
+    text-align: center;
+  }
+
   canvas {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
     background: #101622;
     border-radius: 10px;
     cursor: crosshair;
+  }
+
+  canvas.grab {
+    cursor: grab;
+  }
+
+  canvas.grabbing {
+    cursor: grabbing;
   }
 </style>
