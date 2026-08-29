@@ -49,6 +49,7 @@ export interface POIDefinition {
   name: string;
   icon: string;
   color: string;
+  description?: string;
 }
 
 export interface HomeBaseDefinition {

@@ -88,11 +88,31 @@ export const THEME_CATALOG: Record<string, ThemeDefinition> = {
       }
     ],
     pois: [
-      { name: 'The Ruins', icon: 'ruined_sprawl', color: '#71717a' },
-      { name: 'The Survivor Settlement', icon: 'default_icon', color: '#10b981' },
-      { name: 'The Wasteland Landmark', icon: 'toxic_zone', color: '#f59e0b' },
-      { name: 'The Resource Site', icon: 'garbage_commons', color: '#3b82f6' }
-    ],
+    { 
+      name: 'The Ruins', 
+      icon: 'ruined_sprawl', 
+      color: '#71717a', 
+      description: 'Crumbled structures from a forgotten era, scavenged for lost tech.' 
+    },
+    { 
+      name: 'The Survivor Settlement', 
+      icon: 'default_icon', 
+      color: '#10b981', 
+      description: 'A fortified outpost providing safe haven and trade opportunities.' 
+    },
+    { 
+      name: 'The Wasteland Landmark', 
+      icon: 'toxic_zone', 
+      color: '#f59e0b', 
+      description: 'A distinct geographical feature emitting high levels of radiation.' 
+    },
+    { 
+      name: 'The Resource Site', 
+      icon: 'garbage_commons', 
+      color: '#3b82f6', 
+      description: 'An area rich in raw scrap metal and usable industrial parts.' 
+    }
+  ],
     homeBase: {
       name: 'Safe Haven / Home Base',
       icon: 'default_icon',

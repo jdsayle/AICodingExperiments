@@ -23,6 +23,87 @@
   const MAX_ZOOM = 4;
   const ZOOM_STEP = 0.25;
 
+  // --- HUD State ---
+  let isHudMinimized = $state<boolean>(false);
+
+  // Title Case helper function for formatting text in HexInspector HUD
+  function toTitleCase(str: string): string {
+  if (!str) return '';
+
+  return str
+    // Split camelCase words (e.g., 'ruinedSprawl' -> 'ruined Sprawl')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    // Replace underscores and hyphens with spaces (e.g., 'shattered_city' -> 'shattered city')
+    .replace(/[_]+/g, ' ')
+    // Capitalize the first letter of each word while preserving symbols like '/' or '-'
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  }
+
+  // Derived active hex details for the HUD
+  const activeHexInfo = $derived.by(() => {
+    if (!mapStore.hoveredHex) return null;
+
+    const hex = mapStore.hoveredHex;
+    const biome = mapStore.getBiomeConfig(hex.biomeId);
+    const catalogTheme = THEME_CATALOG[mapStore.themeId];
+    const catalogBiome = catalogTheme?.biomes.find((b) => b.id === hex.biomeId);
+    const subType = catalogBiome?.subTypes.find((st) => st.id === hex.subTypeId);
+
+    const iconKey = subType?.icon || biome?.icon || '';
+
+    // Extract poi to a local variable for strict null checks
+    const poi = hex.poi;
+
+    // If POI is present on the hex
+    if (poi) {
+      const rawPoi = poi as unknown as Record<string, unknown>;
+      const poiType = typeof rawPoi.type === 'string' ? rawPoi.type : null;
+      const poiName = typeof rawPoi.name === 'string' ? rawPoi.name : null;
+      const poiDesc = typeof rawPoi.description === 'string' ? rawPoi.description : '';
+
+      const catalogPoi = catalogTheme?.pois?.find(
+        (p) => p.icon === poi.icon || (poiType && p.name === poiType)
+      );
+
+      const rawPoiDisplayName = catalogPoi?.name || poiName || poiType || poi.icon || 'Unknown POI';
+
+      return {
+        col: hex.col,
+        row: hex.row,
+        biomeName: biome?.name ?? 'Unknown Biome',
+        hasPoi: true,
+        poiName: toTitleCase(String(rawPoiDisplayName)),
+        description: poiDesc || catalogPoi?.description || ''
+      };
+    }
+
+    // Standard Hex Layout
+    return {
+      col: hex.col,
+      row: hex.row,
+      biomeName: biome?.name ?? 'Unknown Biome',
+      hasPoi: false,
+      mainFeature: toTitleCase(iconKey),
+      description: subType?.description ?? ''
+    };
+  });
+
+  function toggleHud() {
+    isHudMinimized = !isHudMinimized;
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+
+    if (e.key === 'i' || e.key === 'I') {
+      e.preventDefault();
+      toggleHud();
+    }
+  }
+
   onMount(() => {
     const img = new Image();
     img.src = spriteSheetUrl;
@@ -32,14 +113,18 @@
     };
 
     window.addEventListener('resize', render);
+    window.addEventListener('keydown', handleKeyDown);
+
     render();
-    return () => window.removeEventListener('resize', render);
+    return () => {
+      window.removeEventListener('resize', render);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   });
 
   function clampPan(x: number, y: number, scale: number): { x: number; y: number } {
     if (!canvasEl) return { x: 0, y: 0 };
     
-    // Calculate boundaries to prevent panning beyond canvas edges
     const maxPanX = (canvasEl.width * (scale - 1)) / 2;
     const maxPanY = (canvasEl.height * (scale - 1)) / 2;
 
@@ -58,18 +143,15 @@
     if (newScale === oldScale) return;
 
     if (newScale === 1) {
-      // Reset pan when fully zoomed out
       zoomScale = 1;
       panOffset = { x: 0, y: 0 };
       render();
       return;
     }
 
-    // Default target center of canvas if mouse position is not provided
     const targetX = mouseCanvasX ?? canvasEl.width / 2;
     const targetY = mouseCanvasY ?? canvasEl.height / 2;
 
-    // Zoom relative to target coordinate
     const factor = newScale / oldScale;
     const newPanX = targetX - factor * (targetX - panOffset.x);
     const newPanY = targetY - factor * (targetY - panOffset.y);
@@ -98,7 +180,7 @@
   }
 
   function handleMouseDown(e: MouseEvent) {
-    if (e.button !== 0 || zoomScale === 1) return; // Only drag when zoomed in
+    if (e.button !== 0 || zoomScale === 1) return;
     isDragging = true;
     dragStart = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
   }
@@ -106,7 +188,6 @@
   function handleMouseMove(e: MouseEvent) {
     if (!canvasEl || !containerEl) return;
 
-    // Handle Panning
     if (isDragging) {
       const rawX = e.clientX - dragStart.x;
       const rawY = e.clientY - dragStart.y;
@@ -114,7 +195,6 @@
       render();
     }
 
-    // Transform Screen Mouse Coordinates to Canvas Internal Space (accounting for Pan & Zoom)
     const rect = canvasEl.getBoundingClientRect();
     const rawMouseX = (e.clientX - rect.left) * (canvasEl.width / rect.width);
     const rawMouseY = (e.clientY - rect.top) * (canvasEl.height / rect.height);
@@ -194,7 +274,6 @@
 
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
-    // Apply Viewport Zoom & Pan Transformations
     ctx.save();
     const centerX = canvasEl.width / 2;
     const centerY = canvasEl.height / 2;
@@ -203,7 +282,6 @@
     ctx.scale(zoomScale, zoomScale);
     ctx.translate(-centerX, -centerY);
 
-    // Pixelated crisp rendering for sprites
     ctx.imageSmoothingEnabled = false;
 
     // 1. Base Hex Tiles & Bitmap Overlay
@@ -338,7 +416,7 @@
       }
     });
 
-    ctx.restore(); // Restore world transform state
+    ctx.restore();
   }
 
   $effect(() => {
@@ -360,13 +438,81 @@
 </script>
 
 <div class="viewport" bind:this={containerEl}>
-  <!-- Top-Right Zoom Control Overlay -->
+  <!-- Top-Right Zoom Controls -->
   <div class="zoom-controls">
     <button type="button" class="zoom-btn" onclick={() => handleZoom(ZOOM_STEP)} title="Zoom In">+</button>
     <span class="zoom-level">{Math.round(zoomScale * 100)}%</span>
     <button type="button" class="zoom-btn" onclick={() => handleZoom(-ZOOM_STEP)} title="Zoom Out">−</button>
     <button type="button" class="reset-btn" onclick={resetZoom} title="Reset View">Reset</button>
   </div>
+
+  <!-- Bottom-Left Floating Map HUD Panel -->
+  {#if isHudMinimized}
+    <button
+      type="button"
+      class="hud-pill"
+      onclick={toggleHud}
+      title="Expand Inspector (Press 'I')"
+    >
+      <span class="hud-pill-icon">ℹ</span>
+      <span class="hud-pill-label">Inspect</span>
+    </button>
+  {:else}
+    <div class="hex-hud">
+      <div class="hud-header">
+        <span class="hud-title">Hex Inspector</span>
+        <button
+          type="button"
+          class="hud-toggle-btn"
+          onclick={toggleHud}
+          title="Minimize Inspector (Press 'I')"
+        >
+          −
+        </button>
+      </div>
+
+      <div class="hud-body">
+        {#if activeHexInfo}
+          <div class="hud-row">
+            <span class="hud-label">Tile:</span>
+            <span class="hud-coord">({activeHexInfo.col}, {activeHexInfo.row})</span>
+          </div>
+          
+          <div class="hud-row">
+            <span class="hud-label">Biome:</span>
+            <span class="hud-value">{activeHexInfo.biomeName}</span>
+          </div>
+
+          {#if activeHexInfo.hasPoi}
+            <!-- POI Specific Layout -->
+            <div class="hud-row">
+              <span class="hud-label">POI:</span>
+              <span class="hud-poi-val">{activeHexInfo.poiName}</span>
+            </div>
+          {:else}
+            <!-- Standard Hex Layout -->
+            {#if activeHexInfo.mainFeature}
+              <div class="hud-row">
+                <span class="hud-label">Main Feature:</span>
+                <span class="hud-icon-val">{activeHexInfo.mainFeature}</span>
+              </div>
+            {/if}
+          {/if}
+
+          <!-- Description (POI Description or Sub-type Description) -->
+          {#if activeHexInfo.description}
+            <div class="hud-description">
+              {activeHexInfo.description}
+            </div>
+          {/if}
+        {:else}
+          <div class="hud-placeholder">
+            Hover over a hex for more info
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <canvas
     bind:this={canvasEl}
@@ -451,6 +597,147 @@
     font-family: monospace;
     min-width: 38px;
     text-align: center;
+  }
+
+  /* Bottom-Left Floating HUD Overlay */
+  .hex-hud {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 20;
+    width: 240px;
+    background: rgba(16, 22, 34, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    color: #f8fafc;
+    user-select: none;
+    pointer-events: auto;
+  }
+
+  .hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .hud-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #38bdf8;
+  }
+
+  .hud-toggle-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+
+  .hud-toggle-btn:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .hud-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hud-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .hud-label {
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .hud-coord {
+    font-family: monospace;
+    color: #cbd5e1;
+  }
+
+  .hud-value {
+    font-weight: 600;
+    color: #f8fafc;
+  }
+
+  .hud-icon-val {
+    font-family: monospace;
+    font-size: 12px;
+    color: #38bdf8;
+  }
+
+  .hud-poi-val {
+    font-weight: 700;
+    color: #f59e0b;
+  }
+
+  .hud-description {
+    font-size: 12px;
+    line-height: 1.35;
+    color: #94a3b8;
+    margin-top: 4px;
+    white-space: normal;
+  }
+
+  .hud-placeholder {
+    font-size: 12px;
+    color: #64748b;
+    font-style: italic;
+    padding: 4px 0;
+  }
+
+  /* Minimized Pill View */
+  .hud-pill {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16, 22, 34, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 6px 12px;
+    color: #f8fafc;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .hud-pill:hover {
+    background: #1e293b;
+    border-color: #38bdf8;
+  }
+
+  .hud-pill-icon {
+    font-size: 12px;
+    color: #38bdf8;
+  }
+
+  .hud-pill-label {
+    font-size: 12px;
+    font-weight: 600;
   }
 
   canvas {
