@@ -76,7 +76,7 @@
         {#each mapStore.activeTheme.biomes as biome}
           <div class="biome-group" style="margin-bottom: 12px; border-bottom: 1px solid #242f3d; padding-bottom: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span class="biome-title" style="margin-bottom: 0;">{@html biome.icon} {biome.name}</span>
+              <span class="biome-title" style="margin-bottom: 0;">{biome.name}</span>
               <div class="freq-picker">
                 {#each [0, 1, 2, 3] as lvl}
                   <button
@@ -150,7 +150,7 @@
     </div>
   </div>
 
-  <HexInspector />
+  <!-- <HexInspector /> -->
 
   <div class="section export-section">
     <button class="primary export-btn" onclick={handleExportPNG}>Export Map as High-Res PNG</button>
