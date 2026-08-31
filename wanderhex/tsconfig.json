@@ -14,5 +14,9 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "src/lib/components/_old_SidebarCode"]
+  "include": [
+    "src/**/*.ts", 
+    "src/**/*.svelte", 
+    "src/**/*.svelte.ts"
+  ]
 }

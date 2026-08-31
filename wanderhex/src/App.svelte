@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { initHotkeyListener } from './services/hotkeyService';
   import Sidebar from './lib/components/Sidebar.svelte';
   import HexCanvas from './lib/components/HexCanvas.svelte';
   import { mapStore } from './lib/state/mapState.svelte';
@@ -7,6 +8,8 @@
   // Automatically generate the initial map when the app mounts
   onMount(() => {
     mapStore.generateFresh();
+    const cleanup = initHotkeyListener();
+    return cleanup;
   });
 </script>
 

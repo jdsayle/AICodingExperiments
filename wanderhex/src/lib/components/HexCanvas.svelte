@@ -28,15 +28,15 @@
 
   // Title Case helper function for formatting text in HexInspector HUD
   function toTitleCase(str: string): string {
-  if (!str) return '';
+    if (!str) return '';
 
-  return str
-    // Split camelCase words (e.g., 'ruinedSprawl' -> 'ruined Sprawl')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    // Replace underscores and hyphens with spaces (e.g., 'shattered_city' -> 'shattered city')
-    .replace(/[_]+/g, ' ')
-    // Capitalize the first letter of each word while preserving symbols like '/' or '-'
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+    return str
+      // Split camelCase words (e.g., 'ruinedSprawl' -> 'ruined Sprawl')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      // Replace underscores and hyphens with spaces (e.g., 'shattered_city' -> 'shattered city')
+      .replace(/[_]+/g, ' ')
+      // Capitalize the first letter of each word while preserving symbols like '/' or '-'
+      .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
   }
 
   // Derived active hex details for the HUD
@@ -357,11 +357,13 @@
       ctx.lineWidth = isHovered ? 3 / zoomScale : 1.2 / zoomScale;
       ctx.stroke();
 
-      // Coordinate Label
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.font = `${Math.max(9, Math.round(geo.radius * 0.22))}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`${hex.col},${hex.row}`, center.x, center.y - geo.radius * 0.52);
+      // Coordinate Label (Renders conditionally based on store toggle)
+      if (mapStore.showCoordinates) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.font = `${Math.max(9, Math.round(geo.radius * 0.22))}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`${hex.col},${hex.row}`, center.x, center.y - geo.radius * 0.52);
+      }
     });
 
     // 2. Organic Spline Curves
@@ -429,6 +431,7 @@
       curves: mapStore.curves,
       hover: mapStore.hoveredHex,
       overrides: mapStore.customOverrides,
+      showCoordinates: mapStore.showCoordinates,
       sheet: spriteSheet,
       zoom: zoomScale,
       pan: panOffset

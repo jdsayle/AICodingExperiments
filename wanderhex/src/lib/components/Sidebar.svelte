@@ -1,7 +1,6 @@
 <script lang="ts">
   import { mapStore } from '../state/mapState.svelte';
   import { THEME_CATALOG } from '../themes/themeCatalog';
-  import HexInspector from './HexInspector.svelte';
   import TileManagerModal from './TileManagerModal.svelte';
   import type { GridOrientation, FrequencyLevel } from '../types';
 
@@ -119,7 +118,19 @@
   </div>
 
   <div class="section">
-    <h2>Grid Geometry</h2>
+    <h2>Grid Settings</h2>
+
+    <div class="control-group toggle-group">
+      <label for="showCoordinates" class="toggle-label">
+        <input 
+          type="checkbox" 
+          id="showCoordinates" 
+          bind:checked={mapStore.showCoordinates} 
+        />
+        <span>Show Hex Coordinates <kbd class="shortcut-tag">C</kbd></span>
+      </label>
+    </div>
+
     <div class="control-group">
       <label for="gridSize">Grid Bounds</label>
       <select id="gridSize" value={mapStore.gridCols} onchange={handleBoundsChange}>
@@ -215,6 +226,30 @@
     margin-bottom: 12px;
   }
 
+  .toggle-group {
+    margin-bottom: 14px;
+  }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-main, #e2e8f0);
+    cursor: pointer;
+  }
+
+  .shortcut-tag {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    font-family: monospace;
+    margin-left: 4px;
+  }
+
   input, select, button {
     background: #1c2430;
     border: 1px solid var(--panel-border, #242f3d);
@@ -224,6 +259,12 @@
     font-size: 0.85rem;
     outline: none;
     transition: all 0.15s ease;
+  }
+
+  input[type="checkbox"] {
+    width: auto;
+    padding: 0;
+    cursor: pointer;
   }
 
   input:focus, select:focus {

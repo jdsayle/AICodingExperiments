@@ -42,8 +42,21 @@ export class MapStateStore {
   curves = $state<SplineCurve[]>([]);
   hoveredHex = $state<HexData | null>(null);
 
+  // View options state
+  showCoordinates = $state<boolean>(true);
+  isHudMinimized = $state<boolean>(false);
+
   constructor() {
     this.generateFresh();
+  }
+
+  // View Option Toggles
+  toggleCoordinates() {
+    this.showCoordinates = !this.showCoordinates;
+  }
+
+  toggleHud() {
+    this.isHudMinimized = !this.isHudMinimized;
   }
 
   setTheme(id: string) {

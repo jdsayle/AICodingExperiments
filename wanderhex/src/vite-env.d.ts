@@ -1,2 +1,6 @@
 /// <reference types="svelte" />
 /// <reference types="vite/client" />
+
+declare module '*.svelte.ts' {
+  export * from '*.svelte.ts';
+}
