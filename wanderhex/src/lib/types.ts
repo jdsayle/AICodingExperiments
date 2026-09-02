@@ -73,6 +73,17 @@ export interface POIData {
   color: string;
 }
 
+export type EdgeFeatureKind = 'road' | 'river' | 'water' | 'wall';
+
+export interface EdgeFeature {
+  id: string;
+  kind: EdgeFeatureKind;
+  edgeIndex: number;
+  opacity: number;
+  color: string;
+  width: number;
+}
+
 export interface HexData {
   q: number;
   r: number;
@@ -88,6 +99,7 @@ export interface HexData {
   poiType?: string;
   poiDescription?: string;
   poi?: POIData;
+  edgeFeatures?: EdgeFeature[];
 }
 
 export interface SplineCurve {

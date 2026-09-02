@@ -2,9 +2,9 @@
   import { onMount } from 'svelte';
   import { mapStore } from '../state/mapState.svelte';
   import { calculateHexGeometry, getRectHexCenter, getHexCorners, isPointInPolygon } from '../math/hexMath';
-  import { drawOrganicSpline } from '../math/splineMath';
   import { THEME_CATALOG } from '../themes/themeCatalog';
   import { SPRITE_MAP } from '../constants/spriteMap';
+  import type { HexData } from '../types';
   import spriteSheetUrl from '../../assets/icons.jpg';
 
   let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -31,11 +31,8 @@
     if (!str) return '';
 
     return str
-      // Split camelCase words (e.g., 'ruinedSprawl' -> 'ruined Sprawl')
       .replace(/([a-z])([A-Z])/g, '$1 $2')
-      // Replace underscores and hyphens with spaces (e.g., 'shattered_city' -> 'shattered city')
       .replace(/[_]+/g, ' ')
-      // Capitalize the first letter of each word while preserving symbols like '/' or '-'
       .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
   }
 
@@ -51,10 +48,8 @@
 
     const iconKey = subType?.icon || biome?.icon || '';
 
-    // Extract poi to a local variable for strict null checks
     const poi = hex.poi;
 
-    // If POI is present on the hex
     if (poi) {
       const rawPoi = poi as unknown as Record<string, unknown>;
       const poiType = typeof rawPoi.type === 'string' ? rawPoi.type : null;
@@ -77,7 +72,6 @@
       };
     }
 
-    // Standard Hex Layout
     return {
       col: hex.col,
       row: hex.row,
@@ -242,12 +236,51 @@
     mapStore.hoveredHex = null;
   }
 
+  function renderStroke(
+    ctx: CanvasRenderingContext2D,
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    color: string,
+    width: number,
+    offsetPx: number
+  ) {
+    let x1 = p1.x;
+    let y1 = p1.y;
+    let x2 = p2.x;
+    let y2 = p2.y;
+
+    if (offsetPx !== 0) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      if (len > 0) {
+        const nx = -dy / len;
+        const ny = dx / len;
+        x1 += nx * offsetPx;
+        y1 += ny * offsetPx;
+        x2 += nx * offsetPx;
+        y2 += ny * offsetPx;
+      }
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width / zoomScale;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function render() {
     if (!canvasEl || !containerEl) return;
     const ctx = canvasEl.getContext('2d');
     if (!ctx) return;
 
-    const { gridCols, gridRows, orientation, hexes, curves, hoveredHex, customOverrides } = mapStore;
+    const { gridCols, gridRows, orientation, hexes, hoveredHex, customOverrides, canonicalEdges } = mapStore;
     const sidePadding = 48;
     const maxW = (containerEl.clientWidth || 800) - sidePadding * 2;
     const maxH = (containerEl.clientHeight || 800) - sidePadding * 2;
@@ -357,7 +390,7 @@
       ctx.lineWidth = isHovered ? 3 / zoomScale : 1.2 / zoomScale;
       ctx.stroke();
 
-      // Coordinate Label (Renders conditionally based on store toggle)
+      // Coordinate Label
       if (mapStore.showCoordinates) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
         ctx.font = `${Math.max(9, Math.round(geo.radius * 0.22))}px monospace`;
@@ -366,22 +399,23 @@
       }
     });
 
-    // 2. Organic Spline Curves
-    curves.forEach((curve) => {
-      ctx.save();
-      ctx.beginPath();
-      drawOrganicSpline(ctx, curve.points, 0.6);
+    // 2. Canonical Edge Feature Overlay (Roads & Rivers)
+    canonicalEdges.forEach((edge) => {
+      if (!edge.hasRoad && !edge.hasRiver) return;
 
-      if (curve.type === 'river') {
-        ctx.strokeStyle = '#0284c7';
-        ctx.lineWidth = curve.width || 4;
-        ctx.stroke();
-      } else if (curve.type === 'highway') {
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = curve.width || 3;
-        ctx.stroke();
+      const center = getRectHexCenter(edge.hexA.col, edge.hexA.row, geo, orientation, originX, originY);
+      const corners = getHexCorners(center, geo.radius - 1, orientation);
+
+      const p1 = corners[edge.edgeIndexA];
+      const p2 = corners[(edge.edgeIndexA + 1) % 6];
+
+      if (edge.hasRoad) {
+        renderStroke(ctx, p1, p2, '#d97706', 5.3, edge.roadOffset ?? 0);
       }
-      ctx.restore();
+
+      if (edge.hasRiver) {
+        renderStroke(ctx, p1, p2, '#0284c7', 5.3, edge.riverOffset ?? 0);
+      }
     });
 
     // 3. POI Tokens
@@ -428,7 +462,9 @@
       rows: mapStore.gridRows,
       orient: mapStore.orientation,
       hexes: mapStore.hexes,
-      curves: mapStore.curves,
+      canonicalEdges: mapStore.canonicalEdges,
+      roadLevel: mapStore.roadLevel,
+      riverLevel: mapStore.riverLevel,
       hover: mapStore.hoveredHex,
       overrides: mapStore.customOverrides,
       showCoordinates: mapStore.showCoordinates,
@@ -487,13 +523,11 @@
           </div>
 
           {#if activeHexInfo.hasPoi}
-            <!-- POI Specific Layout -->
             <div class="hud-row">
               <span class="hud-label">POI:</span>
               <span class="hud-poi-val">{activeHexInfo.poiName}</span>
             </div>
           {:else}
-            <!-- Standard Hex Layout -->
             {#if activeHexInfo.mainFeature}
               <div class="hud-row">
                 <span class="hud-label">Main Feature:</span>
@@ -502,7 +536,6 @@
             {/if}
           {/if}
 
-          <!-- Description (POI Description or Sub-type Description) -->
           {#if activeHexInfo.description}
             <div class="hud-description">
               {activeHexInfo.description}
@@ -542,7 +575,6 @@
     overflow: hidden;
   }
 
-  /* Top-Right Floating Controls */
   .zoom-controls {
     position: absolute;
     top: 16px;
@@ -602,7 +634,6 @@
     text-align: center;
   }
 
-  /* Bottom-Left Floating HUD Overlay */
   .hex-hud {
     position: absolute;
     bottom: 16px;
@@ -708,7 +739,6 @@
     padding: 4px 0;
   }
 
-  /* Minimized Pill View */
   .hud-pill {
     position: absolute;
     bottom: 16px;

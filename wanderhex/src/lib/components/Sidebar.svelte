@@ -6,7 +6,7 @@
 
   let customSeedInput = $state(mapStore.seed);
   let isTileModalOpen = $state(false);
-  let showSubTypes = $state(false); // Controls visibility of sub-types menu
+  let showSubTypes = $state(false);
 
   const themeList = Object.values(THEME_CATALOG);
 
@@ -60,6 +60,43 @@
           <option value={theme.id}>{theme.name}</option>
         {/each}
       </select>
+    </div>
+
+    <!-- Roads & Rivers Sliders -->
+    <div class="section px-0 pb-0 border-none" style="margin-top: 12px; border-top: 1px solid #242f3d; padding-top: 12px;">
+      <h2>Linear Features (Roads & Rivers)</h2>
+      
+      <div class="control-group">
+        <div style="display: flex; justify-content: space-between;">
+          <label for="roadSlider">Road Network Level</label>
+          <span class="level-indicator">{mapStore.roadLevel}</span>
+        </div>
+        <input
+          id="roadSlider"
+          type="range"
+          min="0"
+          max="3"
+          step="1"
+          value={mapStore.roadLevel}
+          oninput={(e) => mapStore.setRoadLevel(parseInt(e.currentTarget.value, 10))}
+        />
+      </div>
+
+      <div class="control-group">
+        <div style="display: flex; justify-content: space-between;">
+          <label for="riverSlider">River Network Level</label>
+          <span class="level-indicator">{mapStore.riverLevel}</span>
+        </div>
+        <input
+          id="riverSlider"
+          type="range"
+          min="0"
+          max="3"
+          step="1"
+          value={mapStore.riverLevel}
+          oninput={(e) => mapStore.setRiverLevel(parseInt(e.currentTarget.value, 10))}
+        />
+      </div>
     </div>
 
     <div class="section px-0 pb-0 border-none">
@@ -161,8 +198,6 @@
     </div>
   </div>
 
-  <!-- <HexInspector /> -->
-
   <div class="section export-section">
     <button class="primary export-btn" onclick={handleExportPNG}>Export Map as High-Res PNG</button>
   </div>
@@ -207,6 +242,12 @@
     margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .level-indicator {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent, #38bdf8);
   }
 
   .biome-title {
@@ -259,6 +300,12 @@
     font-size: 0.85rem;
     outline: none;
     transition: all 0.15s ease;
+  }
+
+  input[type="range"] {
+    accent-color: var(--accent, #38bdf8);
+    cursor: pointer;
+    padding: 0;
   }
 
   input[type="checkbox"] {
