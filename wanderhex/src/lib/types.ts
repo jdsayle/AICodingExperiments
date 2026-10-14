@@ -5,34 +5,7 @@ export interface Point2D {
   y: number;
 }
 
-// export interface SubTypeDefinition {
-//   id: string;
-//   name: string;
-//   description: string;
-//   icon?: string;
-//   enabled: boolean;
-// }
-
-// export interface BiomeDefinition {
-//   id: string;
-//   name: string;
-//   description: string;
-//   hexColor: string;
-//   iconColor: string;
-//   icon: string;
-//   subTypes: SubTypeDefinition[];
-// }
-
 export type FrequencyLevel = 0 | 1 | 2 | 3;
-
-export interface SubTypeDefinition {
-  id: string;
-  name: string;
-  description: string;
-  icon?: string;
-  enabled: boolean;
-  frequency: FrequencyLevel; // 0 = None, 1 = Low (1-3), 2 = Med (4-7), 3 = High (8+)
-}
 
 export interface BiomeDefinition {
   id: string;
@@ -41,8 +14,7 @@ export interface BiomeDefinition {
   hexColor: string;
   iconColor: string;
   icon: string;
-  frequency: FrequencyLevel; // Setting parent to 0 blocks all child sub-types
-  subTypes: SubTypeDefinition[];
+  frequency: FrequencyLevel; // 0 = None, 1 = Low (1-3), 2 = Med (4-7), 3 = High (8+)
 }
 
 export interface POIDefinition {
@@ -91,7 +63,6 @@ export interface HexData {
   col: number;
   row: number;
   categoryId: string;
-  subTypeId: string;
   biomeId: string;
   seed: number;
   hasPoi: boolean;

@@ -6,7 +6,6 @@
 
   let customSeedInput = $state(mapStore.seed);
   let isTileModalOpen = $state(false);
-  let showSubTypes = $state(false);
 
   const themeList = Object.values(THEME_CATALOG);
 
@@ -99,51 +98,23 @@
       </div>
     </div>
 
+    <!-- Terrain Frequencies (Single-Tier) -->
     <div class="section px-0 pb-0 border-none">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <h2>Terrain & Frequency</h2>
-        <label style="font-size: 0.75rem; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: pointer;">
-          <input type="checkbox" bind:checked={showSubTypes} />
-          Show Sub-Types
-        </label>
-      </div>
-      
-      <div class="sub-type-container">
+      <h2>Terrain Frequencies</h2>
+      <div class="terrain-frequency-container">
         {#each mapStore.activeTheme.biomes as biome}
-          <div class="biome-group" style="margin-bottom: 12px; border-bottom: 1px solid #242f3d; padding-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span class="biome-title" style="margin-bottom: 0;">{biome.name}</span>
-              <div class="freq-picker">
-                {#each [0, 1, 2, 3] as lvl}
-                  <button
-                    class="freq-btn {biome.frequency === lvl ? 'active' : ''}"
-                    onclick={() => mapStore.setBiomeFrequency(biome.id, lvl as FrequencyLevel)}
-                  >
-                    {lvl}
-                  </button>
-                {/each}
-              </div>
+          <div class="biome-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #242f3d; padding-bottom: 6px;">
+            <span class="biome-title" style="margin-bottom: 0; font-size: 0.8rem;">{biome.name}</span>
+            <div class="freq-picker">
+              {#each [0, 1, 2, 3] as lvl}
+                <button
+                  class="freq-btn {biome.frequency === lvl ? 'active' : ''}"
+                  onclick={() => mapStore.setBiomeFrequency(biome.id, lvl as FrequencyLevel)}
+                >
+                  {lvl}
+                </button>
+              {/each}
             </div>
-
-            {#if showSubTypes && biome.frequency > 0}
-              <div class="sub-type-list" style="padding-left: 16px; margin-top: 6px;">
-                {#each biome.subTypes as st}
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="font-size: 0.75rem; color: #cbd5e1;">{st.icon ?? '▫️'} {st.name}</span>
-                    <div class="freq-picker">
-                      {#each [0, 1, 2, 3] as lvl}
-                        <button
-                          class="freq-btn sub {st.frequency === lvl ? 'active-sub' : ''}"
-                          onclick={() => mapStore.setSubTypeFrequency(biome.id, st.id, lvl as FrequencyLevel)}
-                        >
-                          {lvl}
-                        </button>
-                      {/each}
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            {/if}
           </div>
         {/each}
       </div>
@@ -257,7 +228,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 6px;
   }
   
   .control-group {
@@ -330,21 +300,11 @@
     background: #1e293b;
     border: none;
     color: #64748b;
-  }
-  
-  .freq-btn.sub {
-    padding: 1px 4px;
-    font-size: 0.65rem;
+    cursor: pointer;
   }
 
   .freq-btn.active {
     background: #3b82f6;
-    color: #fff;
-    font-weight: bold;
-  }
-
-  .freq-btn.active-sub {
-    background: #6366f1;
     color: #fff;
     font-weight: bold;
   }

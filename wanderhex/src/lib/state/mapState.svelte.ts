@@ -80,9 +80,6 @@ export class MapStateStore {
       this.activeTheme = JSON.parse(JSON.stringify(this.themes[id]));
       this.activeTheme.biomes.forEach(b => {
         if (b.frequency === undefined) b.frequency = 1;
-        b.subTypes.forEach(st => {
-          if (st.frequency === undefined) st.frequency = 1;
-        });
       });
       this.generateFresh(this.seed);
     }
@@ -104,17 +101,6 @@ export class MapStateStore {
     if (biome) {
       biome.frequency = level;
       this.generateFresh(this.seed);
-    }
-  }
-
-  setSubTypeFrequency(biomeId: string, subTypeId: string, level: FrequencyLevel) {
-    const biome = this.activeTheme.biomes.find((b) => b.id === biomeId);
-    if (biome) {
-      const sub = biome.subTypes.find((st) => st.id === subTypeId);
-      if (sub) {
-        sub.frequency = level;
-        this.generateFresh(this.seed);
-      }
     }
   }
 
@@ -156,7 +142,6 @@ export class MapStateStore {
 
         const activeBiomes = this.activeTheme.biomes.filter((b) => b.frequency > 0);
         let selectedBiomeId = fallbackBiome.id;
-        let selectedSubTypeId = fallbackBiome.id;
 
         if (activeBiomes.length > 0) {
           const biomePool = activeBiomes.map((biome) => ({
@@ -176,26 +161,6 @@ export class MapStateStore {
             randomVal -= item.weight;
           }
           selectedBiomeId = selectedBiome.id;
-
-          const activeSubTypes = selectedBiome.subTypes.filter((st) => st.frequency > 0);
-          selectedSubTypeId = selectedBiomeId;
-
-          if (activeSubTypes.length > 0) {
-            const subTypePool = activeSubTypes.map((st) => ({
-              st,
-              weight: FREQUENCY_WEIGHTS[st.frequency as FrequencyLevel]
-            }));
-            const totalSubWeight = subTypePool.reduce((acc, item) => acc + item.weight, 0);
-            let subRandom = rng() * totalSubWeight;
-
-            for (const item of subTypePool) {
-              if (subRandom < item.weight) {
-                selectedSubTypeId = item.st.id;
-                break;
-              }
-              subRandom -= item.weight;
-            }
-          }
         }
 
         newHexes.push({
@@ -205,7 +170,6 @@ export class MapStateStore {
           col: c,
           row: r,
           categoryId: selectedBiomeId,
-          subTypeId: selectedSubTypeId,
           biomeId: selectedBiomeId,
           seed: this.seed,
           hasPoi: false,
@@ -363,10 +327,7 @@ export class MapStateStore {
             return { edge, nextKey, dot };
           });
 
-          // Sort candidates strictly by dot product (forward movement momentum)
           scoredCandidates.sort((a, b) => b.dot - a.dot);
-
-          // Pick forward-facing step
           const chosen = scoredCandidates[0];
 
           visitedEdges.add(chosen.edge.id);
@@ -409,7 +370,6 @@ export class MapStateStore {
       return path;
     };
 
-    // Separate seed offsets ensure road slider adjustments do not mutate river generation
     const roadEdges = generateVertexWalkPath(this.roadLevel, 1000);
     roadEdges.forEach(e => (e.hasRoad = true));
 

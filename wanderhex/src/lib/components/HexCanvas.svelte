@@ -4,7 +4,6 @@
   import { calculateHexGeometry, getRectHexCenter, getHexCorners, isPointInPolygon } from '../math/hexMath';
   import { THEME_CATALOG } from '../themes/themeCatalog';
   import { SPRITE_MAP } from '../constants/spriteMap';
-  import type { HexData } from '../types';
   import spriteSheetUrl from '../../assets/icons.jpg';
 
   let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -43,11 +42,8 @@
     const hex = mapStore.hoveredHex;
     const biome = mapStore.getBiomeConfig(hex.biomeId);
     const catalogTheme = THEME_CATALOG[mapStore.themeId];
-    const catalogBiome = catalogTheme?.biomes.find((b) => b.id === hex.biomeId);
-    const subType = catalogBiome?.subTypes.find((st) => st.id === hex.subTypeId);
 
-    const iconKey = subType?.icon || biome?.icon || '';
-
+    const iconKey = biome?.icon || '';
     const poi = hex.poi;
 
     if (poi) {
@@ -65,7 +61,7 @@
       return {
         col: hex.col,
         row: hex.row,
-        biomeName: biome?.name ?? 'Unknown Biome',
+        biomeName: biome?.name ?? 'Unknown Category',
         hasPoi: true,
         poiName: toTitleCase(String(rawPoiDisplayName)),
         description: poiDesc || catalogPoi?.description || ''
@@ -75,10 +71,10 @@
     return {
       col: hex.col,
       row: hex.row,
-      biomeName: biome?.name ?? 'Unknown Biome',
+      biomeName: biome?.name ?? 'Unknown Category',
       hasPoi: false,
       mainFeature: toTitleCase(iconKey),
-      description: subType?.description ?? ''
+      description: biome?.description ?? ''
     };
   });
 
@@ -332,18 +328,14 @@
       ctx.closePath();
       ctx.clip();
 
-      const override = customOverrides[hex.subTypeId] || customOverrides[hex.biomeId];
+      const override = customOverrides[hex.biomeId];
       if (override) {
         ctx.fillStyle = override;
         ctx.fill();
       } else {
         const hexColor = biome?.hexColor ?? '#86efac';
         const iconColor = biome?.iconColor ?? '#166534';
-        
-        const catalogBiome = THEME_CATALOG[mapStore.themeId]?.biomes.find(b => b.id === hex.biomeId);
-        const subType = catalogBiome?.subTypes.find(st => st.id === hex.subTypeId);
-        
-        const iconKey = subType?.icon || biome?.icon || '';
+        const iconKey = biome?.icon || '';
 
         ctx.fillStyle = hexColor;
         ctx.fill();
@@ -518,7 +510,7 @@
           </div>
           
           <div class="hud-row">
-            <span class="hud-label">Biome:</span>
+            <span class="hud-label">Category:</span>
             <span class="hud-value">{activeHexInfo.biomeName}</span>
           </div>
 
@@ -530,7 +522,7 @@
           {:else}
             {#if activeHexInfo.mainFeature}
               <div class="hud-row">
-                <span class="hud-label">Main Feature:</span>
+                <span class="hud-label">Feature:</span>
                 <span class="hud-icon-val">{activeHexInfo.mainFeature}</span>
               </div>
             {/if}
