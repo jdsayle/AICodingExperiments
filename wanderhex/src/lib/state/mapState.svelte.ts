@@ -8,6 +8,8 @@ import type {
 } from '../types';
 import { calculateHexGeometry, getRectHexCenter, getHexCorners } from '../math/hexMath';
 
+export type BorderStyle = 'standard' | 'subtle';
+
 export interface CanonicalEdge {
   id: string;
   hexA: { col: number; row: number };
@@ -62,8 +64,18 @@ export class MapStateStore {
   showCoordinates = $state<boolean>(true);
   isHudMinimized = $state<boolean>(false);
 
+  // --- Edit Mode State ---
+  isEditing = $state<boolean>(false);
+  selectedBrushBiomeId = $state<string>('');
+
+  // --- Border Style State ---
+  borderStyle = $state<BorderStyle>('standard');
+
   constructor() {
     this.generateFresh();
+    if (this.activeTheme.biomes.length > 0) {
+      this.selectedBrushBiomeId = this.activeTheme.biomes[0].id;
+    }
   }
 
   toggleCoordinates() {
@@ -74,6 +86,27 @@ export class MapStateStore {
     this.isHudMinimized = !this.isHudMinimized;
   }
 
+  toggleEditMode() {
+    this.isEditing = !this.isEditing;
+  }
+
+  setBrushBiome(biomeId: string) {
+    this.selectedBrushBiomeId = biomeId;
+  }
+
+  setBorderStyle(style: BorderStyle) {
+    this.borderStyle = style;
+  }
+
+  paintHex(col: number, row: number) {
+    if (!this.isEditing) return;
+    const targetHex = this.hexes.find(h => h.col === col && h.row === row);
+    if (targetHex && this.selectedBrushBiomeId) {
+      targetHex.biomeId = this.selectedBrushBiomeId;
+      targetHex.categoryId = this.selectedBrushBiomeId;
+    }
+  }
+
   setTheme(id: string) {
     if (this.themes[id]) {
       this.themeId = id;
@@ -81,6 +114,9 @@ export class MapStateStore {
       this.activeTheme.biomes.forEach(b => {
         if (b.frequency === undefined) b.frequency = 1;
       });
+      if (this.activeTheme.biomes.length > 0) {
+        this.selectedBrushBiomeId = this.activeTheme.biomes[0].id;
+      }
       this.generateFresh(this.seed);
     }
   }

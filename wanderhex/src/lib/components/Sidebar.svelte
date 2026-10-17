@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { mapStore } from '../state/mapState.svelte';
+  import { mapStore, type BorderStyle } from '../state/mapState.svelte';
   import { THEME_CATALOG } from '../themes/themeCatalog';
   import TileManagerModal from './TileManagerModal.svelte';
   import type { GridOrientation, FrequencyLevel } from '../types';
+  import { onMount, onDestroy } from 'svelte';
 
   let customSeedInput = $state(mapStore.seed);
   let isTileModalOpen = $state(false);
@@ -24,6 +25,11 @@
     mapStore.setOrientation(val);
   }
 
+  function handleBorderStyleChange(e: Event) {
+    const val = (e.target as HTMLSelectElement).value as BorderStyle;
+    mapStore.setBorderStyle(val);
+  }
+
   function handleGenerateNew() {
     mapStore.generateFresh();
     customSeedInput = mapStore.seed;
@@ -42,12 +48,63 @@
     link.href = canvas.toDataURL('image/png');
     link.click();
   }
+
+  // Global Keydown Listener for 'E' Key
+  function handleGlobalKeyDown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+    if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault();
+      mapStore.toggleEditMode();
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener('keydown', handleGlobalKeyDown);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleGlobalKeyDown);
+  });
 </script>
 
 <aside id="sidebar">
   <div class="section header">
     <h1>Tactical Hex Engine</h1>
     <p class="subtitle">Multi-Genre Procedural Cartography</p>
+  </div>
+
+  <!-- Map Editing Mode Section -->
+  <div class="section edit-mode-section" class:active-edit={mapStore.isEditing}>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <h2>Map Editor</h2>
+      <button 
+        type="button" 
+        class="edit-toggle-btn {mapStore.isEditing ? 'active' : ''}" 
+        onclick={() => mapStore.toggleEditMode()}
+      >
+        {mapStore.isEditing ? 'Exit Edit Mode' : 'Enter Edit Mode'} <kbd class="shortcut-tag">E</kbd>
+      </button>
+    </div>
+
+    {#if mapStore.isEditing}
+      <p class="edit-hint">Click any tile on the map to paint with the selected brush.</p>
+      <div class="brush-palette">
+        {#each mapStore.activeTheme.biomes as biome}
+          <button
+            type="button"
+            class="brush-item {mapStore.selectedBrushBiomeId === biome.id ? 'selected' : ''}"
+            onclick={() => mapStore.setBrushBiome(biome.id)}
+            title={biome.name}
+          >
+            <span class="color-badge" style="background-color: {biome.hexColor};"></span>
+            <span class="brush-name">{biome.name}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <div class="section">
@@ -140,6 +197,14 @@
     </div>
 
     <div class="control-group">
+      <label for="borderStyleSelect">Hex Border Style</label>
+      <select id="borderStyleSelect" value={mapStore.borderStyle} onchange={handleBorderStyleChange}>
+        <option value="standard">Standard (Medium)</option>
+        <option value="subtle">Subtle (Faint)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
       <label for="gridSize">Grid Bounds</label>
       <select id="gridSize" value={mapStore.gridCols} onchange={handleBoundsChange}>
         <option value={6}>6 x 6 Hexes (Compact)</option>
@@ -194,6 +259,83 @@
   .section {
     padding: 16px;
     border-bottom: 1px solid var(--panel-border, #242f3d);
+  }
+
+  .edit-mode-section {
+    background: rgba(16, 185, 129, 0.03);
+    transition: background 0.2s ease;
+  }
+
+  .edit-mode-section.active-edit {
+    background: rgba(16, 185, 129, 0.08);
+    border-left: 3px solid #10b981;
+  }
+
+  .edit-toggle-btn {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .edit-toggle-btn.active {
+    background: #10b981;
+    color: #fff;
+    border-color: #059669;
+    font-weight: bold;
+  }
+
+  .edit-hint {
+    font-size: 0.75rem;
+    color: #34d399;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  .brush-palette {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .brush-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #182230;
+    border: 1px solid #242f3d;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    color: #cbd5e1;
+    font-size: 0.8rem;
+  }
+
+  .brush-item:hover {
+    background: #223043;
+    border-color: #38bdf8;
+  }
+
+  .brush-item.selected {
+    background: #0f3d31;
+    border-color: #10b981;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .color-badge {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
   }
 
   .header h1 {

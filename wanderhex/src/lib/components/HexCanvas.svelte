@@ -123,10 +123,10 @@
       img.src = assetUrl;
       img.onload = () => {
         terrainImageCache.set(assetUrl, img);
-        render(); // Trigger re-render once texture loads asynchronously
+        render();
       };
       terrainImageCache.set(assetUrl, img);
-      return null; // Loading state falls back to black until loaded
+      return null;
     }
 
     const cachedImg = terrainImageCache.get(assetUrl)!;
@@ -191,7 +191,15 @@
   }
 
   function handleMouseDown(e: MouseEvent) {
-    if (e.button !== 0 || zoomScale === 1) return;
+    if (e.button !== 0) return;
+
+    if (mapStore.isEditing && mapStore.hoveredHex) {
+      mapStore.paintHex(mapStore.hoveredHex.col, mapStore.hoveredHex.row);
+      render();
+      return;
+    }
+
+    if (zoomScale === 1) return;
     isDragging = true;
     dragStart = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
   }
@@ -242,6 +250,11 @@
       }
     }
     mapStore.hoveredHex = found;
+
+    if (mapStore.isEditing && e.buttons === 1 && mapStore.hoveredHex) {
+      mapStore.paintHex(mapStore.hoveredHex.col, mapStore.hoveredHex.row);
+      render();
+    }
   }
 
   function handleMouseUp() {
@@ -297,7 +310,7 @@
     const ctx = canvasEl.getContext('2d');
     if (!ctx) return;
 
-    const { gridCols, gridRows, orientation, hexes, hoveredHex, customOverrides, canonicalEdges, themeId } = mapStore;
+    const { gridCols, gridRows, orientation, hexes, hoveredHex, customOverrides, canonicalEdges, themeId, borderStyle } = mapStore;
     const sidePadding = 48;
     const maxW = (containerEl.clientWidth || 800) - sidePadding * 2;
     const maxH = (containerEl.clientHeight || 800) - sidePadding * 2;
@@ -338,7 +351,7 @@
     hexes.forEach((hex) => {
       const biome = mapStore.getBiomeConfig(hex.biomeId);
       const center = getRectHexCenter(hex.col, hex.row, geo, orientation, originX, originY);
-      const corners = getHexCorners(center, geo.radius - 1, orientation);
+      const corners = getHexCorners(center, geo.radius, orientation);
 
       ctx.save();
       ctx.beginPath();
@@ -356,7 +369,6 @@
         ctx.fillStyle = override;
         ctx.fill();
       } else if (terrainImg) {
-        // Draw the full-resolution PNG asset fitted to the exact hex bounding dimensions
         ctx.drawImage(
           terrainImg,
           center.x - geo.width / 2,
@@ -365,12 +377,10 @@
           geo.height
         );
       } else {
-        // Fallback to solid black #000000 if loading or missing asset
         ctx.fillStyle = '#000000';
         ctx.fill();
       }
 
-      // Optional icon overlay if defined
       const iconKey = biome?.icon || '';
       if (iconKey && !terrainImg) {
         const coord = SPRITE_MAP[iconKey];
@@ -393,7 +403,9 @@
 
       ctx.restore();
 
-      // Hex Borders & Hover State
+      // Hex Borders & Hover State (Always rendered now between Standard and Subtle)
+      const isHovered = hoveredHex && hoveredHex.col === hex.col && hoveredHex.row === hex.row;
+
       ctx.beginPath();
       ctx.moveTo(corners[0].x, corners[0].y);
       for (let i = 1; i < 6; i++) {
@@ -401,9 +413,16 @@
       }
       ctx.closePath();
 
-      const isHovered = hoveredHex && hoveredHex.col === hex.col && hoveredHex.row === hex.row;
-      ctx.strokeStyle = isHovered ? '#38bdf8' : 'rgba(0, 0, 0, 0.35)';
-      ctx.lineWidth = isHovered ? 3 / zoomScale : 1.2 / zoomScale;
+      if (isHovered) {
+        ctx.strokeStyle = mapStore.isEditing ? '#10b981' : '#38bdf8';
+        ctx.lineWidth = 3 / zoomScale;
+      } else if (borderStyle === 'subtle') {
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.lineWidth = 1.0 / zoomScale;
+      } else {
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.lineWidth = 1.2 / zoomScale;
+      }
       ctx.stroke();
 
       // Coordinate Label
@@ -420,7 +439,7 @@
       if (!edge.hasRoad && !edge.hasRiver) return;
 
       const center = getRectHexCenter(edge.hexA.col, edge.hexA.row, geo, orientation, originX, originY);
-      const corners = getHexCorners(center, geo.radius - 1, orientation);
+      const corners = getHexCorners(center, geo.radius, orientation);
 
       const p1 = corners[edge.edgeIndexA];
       const p2 = corners[(edge.edgeIndexA + 1) % 6];
@@ -484,6 +503,9 @@
       hover: mapStore.hoveredHex,
       overrides: mapStore.customOverrides,
       showCoordinates: mapStore.showCoordinates,
+      editing: mapStore.isEditing,
+      brush: mapStore.selectedBrushBiomeId,
+      borderStyle: mapStore.borderStyle,
       sheet: spriteSheet,
       zoom: zoomScale,
       pan: panOffset
@@ -568,8 +590,9 @@
 
   <canvas
     bind:this={canvasEl}
-    class:grab={zoomScale > 1 && !isDragging}
+    class:grab={zoomScale > 1 && !isDragging && !mapStore.isEditing}
     class:grabbing={isDragging}
+    class:painting={mapStore.isEditing}
     onwheel={handleWheel}
     onmousedown={handleMouseDown}
     onmousemove={handleMouseMove}
@@ -797,5 +820,9 @@
 
   canvas.grabbing {
     cursor: grabbing;
+  }
+
+  canvas.painting {
+    cursor: cell;
   }
 </style>
