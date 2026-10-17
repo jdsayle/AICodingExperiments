@@ -4,13 +4,15 @@
   import { calculateHexGeometry, getRectHexCenter, getHexCorners, isPointInPolygon } from '../math/hexMath';
   import { THEME_CATALOG } from '../themes/themeCatalog';
   import { SPRITE_MAP } from '../constants/spriteMap';
+  import { TERRAIN_ASSET_MAP } from '../constants/terrainAssets';
   import spriteSheetUrl from '../../assets/icons.jpg';
 
   let canvasEl = $state<HTMLCanvasElement | null>(null);
   let containerEl = $state<HTMLDivElement | null>(null);
 
-  // Preload the Sprite Sheet Image
+  // Preload & Cache References
   let spriteSheet = $state<HTMLImageElement | null>(null);
+  const terrainImageCache = new Map<string, HTMLImageElement>();
 
   // --- Pan & Zoom Transform State ---
   let zoomScale = $state<number>(1);
@@ -111,6 +113,25 @@
       window.removeEventListener('keydown', handleKeyDown);
     };
   });
+
+  function getTerrainImage(themeId: string, orientation: string, biomeId: string): HTMLImageElement | null {
+    const assetUrl = TERRAIN_ASSET_MAP[themeId]?.[orientation]?.[biomeId];
+    if (!assetUrl) return null;
+
+    if (!terrainImageCache.has(assetUrl)) {
+      const img = new Image();
+      img.src = assetUrl;
+      img.onload = () => {
+        terrainImageCache.set(assetUrl, img);
+        render(); // Trigger re-render once texture loads asynchronously
+      };
+      terrainImageCache.set(assetUrl, img);
+      return null; // Loading state falls back to black until loaded
+    }
+
+    const cachedImg = terrainImageCache.get(assetUrl)!;
+    return cachedImg.complete && cachedImg.naturalWidth > 0 ? cachedImg : null;
+  }
 
   function clampPan(x: number, y: number, scale: number): { x: number; y: number } {
     if (!canvasEl) return { x: 0, y: 0 };
@@ -276,7 +297,7 @@
     const ctx = canvasEl.getContext('2d');
     if (!ctx) return;
 
-    const { gridCols, gridRows, orientation, hexes, hoveredHex, customOverrides, canonicalEdges } = mapStore;
+    const { gridCols, gridRows, orientation, hexes, hoveredHex, customOverrides, canonicalEdges, themeId } = mapStore;
     const sidePadding = 48;
     const maxW = (containerEl.clientWidth || 800) - sidePadding * 2;
     const maxH = (containerEl.clientHeight || 800) - sidePadding * 2;
@@ -313,7 +334,7 @@
 
     ctx.imageSmoothingEnabled = false;
 
-    // 1. Base Hex Tiles & Bitmap Overlay
+    // 1. Base Hex Tiles & PNG Texture / Fallback Rendering
     hexes.forEach((hex) => {
       const biome = mapStore.getBiomeConfig(hex.biomeId);
       const center = getRectHexCenter(hex.col, hex.row, geo, orientation, originX, originY);
@@ -329,41 +350,44 @@
       ctx.clip();
 
       const override = customOverrides[hex.biomeId];
+      const terrainImg = getTerrainImage(themeId, orientation, hex.biomeId);
+
       if (override) {
         ctx.fillStyle = override;
         ctx.fill();
+      } else if (terrainImg) {
+        // Draw the full-resolution PNG asset fitted to the exact hex bounding dimensions
+        ctx.drawImage(
+          terrainImg,
+          center.x - geo.width / 2,
+          center.y - geo.height / 2,
+          geo.width,
+          geo.height
+        );
       } else {
-        const hexColor = biome?.hexColor ?? '#86efac';
-        const iconColor = biome?.iconColor ?? '#166534';
-        const iconKey = biome?.icon || '';
-
-        ctx.fillStyle = hexColor;
+        // Fallback to solid black #000000 if loading or missing asset
+        ctx.fillStyle = '#000000';
         ctx.fill();
+      }
 
-        if (iconKey) {
-          const coord = SPRITE_MAP[iconKey];
+      // Optional icon overlay if defined
+      const iconKey = biome?.icon || '';
+      if (iconKey && !terrainImg) {
+        const coord = SPRITE_MAP[iconKey];
+        if (coord && spriteSheet) {
+          const tileSize = spriteSheet.width / 4;
+          const sourceX = coord.col * tileSize;
+          const sourceY = coord.row * tileSize;
 
-          if (coord && spriteSheet) {
-            const tileSize = spriteSheet.width / 4;
-            const sourceX = coord.col * tileSize;
-            const sourceY = coord.row * tileSize;
+          const renderSize = Math.round(geo.radius * 0.9);
+          const drawX = center.x - renderSize / 2;
+          const drawY = center.y - renderSize / 2;
 
-            const renderSize = Math.round(geo.radius * 0.9);
-            const drawX = center.x - renderSize / 2;
-            const drawY = center.y - renderSize / 2;
-
-            ctx.drawImage(
-              spriteSheet,
-              sourceX, sourceY, tileSize, tileSize,
-              drawX, drawY, renderSize, renderSize
-            );
-          } else {
-            ctx.fillStyle = iconColor;
-            ctx.font = `bold ${Math.round(geo.radius * 0.7)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(iconKey, center.x, center.y + 2);
-          }
+          ctx.drawImage(
+            spriteSheet,
+            sourceX, sourceY, tileSize, tileSize,
+            drawX, drawY, renderSize, renderSize
+          );
         }
       }
 
@@ -758,11 +782,6 @@
   .hud-pill-icon {
     font-size: 12px;
     color: #38bdf8;
-  }
-
-  .hud-pill-label {
-    font-size: 12px;
-    font-weight: 600;
   }
 
   canvas {
