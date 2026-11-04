@@ -1,24 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-fantasy: 'Cinzel', serif;
+  --font-fantasy-body: 'Lora', serif;
+  
+  --font-scifi: 'Orbitron', sans-serif;
+  --font-scifi-body: 'Inter', sans-serif;
+  
+  --font-apoc: 'Roboto Slab', serif;
+  --font-apoc-body: 'Bitter', serif;
+}
+
+/* Base Theme Variables */
 :root {
-  --bg-color: #0b0f17;
-  --panel-bg: #131923;
-  --panel-border: #263345;
-  --panel-border-hover: #3b4f6b;
-  --text-main: #d1d7e0;
-  --text-muted: #79889c;
-  --accent: #38bdf8;
-  --accent-hover: #0284c7;
-  --success: #22c55e;
-  --success-hover: #16a34a;
+  --bg-color: #141412;
+  --panel-bg: #1c1a17;
+  --panel-border: #2c2824;
+  --panel-border-hover: #443c36;
+  --text-main: #d1d5db;
+  --text-muted: #9ca3af;
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --success: #10b981;
+  --success-hover: #059669;
+  --font-heading: var(--font-apoc);
+  --font-body: var(--font-apoc-body);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+[data-theme="fantasy"] {
+  --bg-color: #0f0e13;
+  --panel-bg: #16131a;
+  --panel-border: #3d3124;
+  --panel-border-hover: #5c4735;
+  --text-main: #fef3c7;
+  --text-muted: #d1d5db;
+  --accent: #d4af37;
+  --accent-hover: #b89728;
+  --success: #059669;
+  --success-hover: #047857;
+  --font-heading: var(--font-fantasy);
+  --font-body: var(--font-fantasy-body);
 }
 
+[data-theme="sci_fi"] {
+  --bg-color: #090d16;
+  --panel-bg: #0f172a;
+  --panel-border: #1e293b;
+  --panel-border-hover: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #06b6d4;
+  --accent-hover: #0891b2;
+  --success: #38bdf8;
+  --success-hover: #0284c7;
+  --font-heading: var(--font-scifi);
+  --font-body: var(--font-scifi-body);
+}
+
+/* Global Font and Body Defaults */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body) !important;
   background: var(--bg-color);
   color: var(--text-main);
   height: 100vh;
@@ -26,12 +67,69 @@ body {
   user-select: none;
 }
 
-#app {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
+h1, h2, h3, h4, th {
+  font-family: var(--font-heading) !important;
 }
 
-button, input, select {
-  font-family: inherit;
+input, select, button, textarea {
+  font-family: var(--font-body) !important;
+}
+
+/* Consolidated Optical Size Compensation (Post-Apoc & Fantasy) */
+[data-theme="post_apoc"] h1,
+[data-theme="fantasy"] h1 {
+  font-size: 1.05rem !important;
+}
+
+[data-theme="post_apoc"] h2,
+[data-theme="fantasy"] h2,
+[data-theme="post_apoc"] .text-xs,
+[data-theme="fantasy"] .text-xs {
+  font-size: 0.800rem !important;
+}
+
+[data-theme="post_apoc"] input,
+[data-theme="post_apoc"] select,
+[data-theme="post_apoc"] button,
+[data-theme="post_apoc"] .text-\[0\.85rem\],
+[data-theme="fantasy"] input,
+[data-theme="fantasy"] select,
+[data-theme="fantasy"] button,
+[data-theme="fantasy"] .text-\[0\.85rem\] {
+  font-size: 0.900rem !important;
+}
+
+/* Sidebar Layout & Shift Stabilization */
+:root {
+  --section-padding: 1rem;
+  --item-gap: 0.875rem;
+}
+
+#sidebar h1, 
+#sidebar h2, 
+#sidebar label, 
+#sidebar button, 
+#sidebar select, 
+#sidebar input {
+  line-height: 1.25 !important;
+}
+
+#sidebar > div {
+  padding: var(--section-padding) !important;
+  box-sizing: border-box;
+}
+
+#sidebar .flex.flex-col {
+  gap: var(--item-gap);
+}
+
+#sidebar select, 
+#sidebar input[type="text"] {
+  height: 2.25rem;
+  box-sizing: border-box;
+}
+
+/* Exact vertical alignment compensation for Sci-Fi panels */
+[data-theme="sci_fi"] #sidebar > div {
+  padding-top: calc(var(--section-padding) + 1px) !important;
 }

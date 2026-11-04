@@ -70,48 +70,49 @@
   });
 </script>
 
-<aside id="sidebar">
-  <div class="section header">
-    <h1>Tactical Hex Engine</h1>
-    <p class="subtitle">Multi-Genre Procedural Cartography</p>
+<aside id="sidebar" class="w-[340px] min-w-[340px] max-w-[340px] bg-[var(--panel-bg)] border-r border-[var(--panel-border)] flex flex-col overflow-y-auto overflow-x-hidden z-10 h-screen box-border select-none pr-1">
+  <div class="p-4 border-b border-[var(--panel-border)]">
+    <h1 class="text-base font-bold text-[var(--text-main)] mb-1 tracking-wide">Tactical Hex Engine</h1>
+    <p class="text-[0.75rem] text-[var(--text-muted)] tracking-wider uppercase font-medium">Multi-Genre Procedural Cartography</p>
   </div>
 
   <!-- Map Editing Mode Section -->
-  <div class="section edit-mode-section" class:active-edit={mapStore.isEditing}>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <h2>Map Editor</h2>
+  <div class="p-4 border-b border-[var(--panel-border)] transition-colors duration-200 {mapStore.isEditing ? 'bg-emerald-500/10 border-l-4 border-l-[var(--success)]' : 'bg-transparent'}">
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider">Map Editor</h2>
       <button 
         type="button" 
-        class="edit-toggle-btn {mapStore.isEditing ? 'active' : ''}" 
+        class="text-[0.8rem] px-2.5 py-1 bg-[var(--panel-border)] border border-[var(--panel-border-hover)] text-[var(--text-muted)] rounded transition-all cursor-pointer hover:text-[var(--text-main)] {mapStore.isEditing ? '!bg-[var(--success)] !text-white !border-[var(--success-hover)] font-bold shadow-sm' : ''}" 
+        style="font-family: var(--font-scifi-body), sans-serif !important; font-size: 0.8rem !important;"
         onclick={() => mapStore.toggleEditMode()}
       >
-        {mapStore.isEditing ? 'Exit Edit Mode' : 'Enter Edit Mode'} <kbd class="shortcut-tag">E</kbd>
+        {mapStore.isEditing ? 'Exit Edit Mode' : 'Enter Edit Mode'} <kbd class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-muted)] rounded px-1.5 py-0.5 text-[0.75rem] font-mono ml-1">E</kbd>
       </button>
     </div>
 
     {#if mapStore.isEditing}
-      <p class="edit-hint">Click any tile on the map to paint with the selected brush.</p>
-      <div class="brush-palette">
+      <p class="text-[0.75rem] text-[var(--success)] mb-2 italic">Click any tile on the map to paint with the selected brush.</p>
+      <div class="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto pr-1">
         {#each mapStore.activeTheme.biomes as biome}
           <button
             type="button"
-            class="brush-item {mapStore.selectedBrushBiomeId === biome.id ? 'selected' : ''}"
+            class="flex items-center gap-2.5 bg-[var(--bg-color)] border border-[var(--panel-border)] px-2.5 py-1.5 rounded cursor-pointer text-left w-full text-[var(--text-main)] text-[0.85rem] transition-colors hover:border-[var(--accent)] hover:bg-[var(--panel-border)] {mapStore.selectedBrushBiomeId === biome.id ? '!bg-[var(--success)]/20 !border-[var(--success)] !text-white font-semibold' : ''}"
             onclick={() => mapStore.setBrushBiome(biome.id)}
             title={biome.name}
           >
-            <span class="color-badge" style="background-color: {biome.hexColor};"></span>
-            <span class="brush-name">{biome.name}</span>
+            <span class="w-3.5 h-3.5 rounded-sm flex-shrink-0" style="background-color: {biome.hexColor};"></span>
+            <span class="truncate">{biome.name}</span>
           </button>
         {/each}
       </div>
     {/if}
   </div>
 
-  <div class="section">
-    <h2>World Genre & Theme</h2>
-    <div class="control-group">
-      <label for="themeSelect">Theme Preset</label>
-      <select id="themeSelect" value={mapStore.themeId} onchange={handleThemeChange}>
+  <div class="p-4 border-b border-[var(--panel-border)]">
+    <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">World Genre & Theme</h2>
+    <div class="flex flex-col gap-1.5 mb-3.5">
+      <label for="themeSelect" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Theme Preset</label>
+      <select id="themeSelect" class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-main)] px-3 py-2 rounded-md text-[0.85rem] outline-none transition-colors focus:border-[var(--accent)] cursor-pointer" value={mapStore.themeId} onchange={handleThemeChange}>
         {#each themeList as theme}
           <option value={theme.id}>{theme.name}</option>
         {/each}
@@ -119,13 +120,13 @@
     </div>
 
     <!-- Roads & Rivers Sliders -->
-    <div class="section px-0 pb-0 border-none" style="margin-top: 12px; border-top: 1px solid #242f3d; padding-top: 12px;">
-      <h2>Linear Features (Roads & Rivers)</h2>
+    <div class="mt-3.5 pt-3.5 border-t border-[var(--panel-border)]">
+      <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">Linear Features (Roads & Rivers)</h2>
       
-      <div class="control-group">
-        <div style="display: flex; justify-content: space-between;">
-          <label for="roadSlider">Road Network Level</label>
-          <span class="level-indicator">{mapStore.roadLevel}</span>
+      <div class="flex flex-col gap-1.5 mb-3.5">
+        <div class="flex justify-between items-center">
+          <label for="roadSlider" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Road Network Level</label>
+          <span class="text-[0.85rem] font-bold text-[var(--accent)]">{mapStore.roadLevel}</span>
         </div>
         <input
           id="roadSlider"
@@ -133,15 +134,16 @@
           min="0"
           max="3"
           step="1"
+          class="accent-[var(--accent)] cursor-pointer"
           value={mapStore.roadLevel}
           oninput={(e) => mapStore.setRoadLevel(parseInt(e.currentTarget.value, 10))}
         />
       </div>
 
-      <div class="control-group">
-        <div style="display: flex; justify-content: space-between;">
-          <label for="riverSlider">River Network Level</label>
-          <span class="level-indicator">{mapStore.riverLevel}</span>
+      <div class="flex flex-col gap-1.5 mb-3.5">
+        <div class="flex justify-between items-center">
+          <label for="riverSlider" class="text-[0.75rem] font-medium text-[var(--text-muted)]">River Network Level</label>
+          <span class="text-[0.85rem] font-bold text-[var(--accent)]">{mapStore.riverLevel}</span>
         </div>
         <input
           id="riverSlider"
@@ -149,6 +151,7 @@
           min="0"
           max="3"
           step="1"
+          class="accent-[var(--accent)] cursor-pointer"
           value={mapStore.riverLevel}
           oninput={(e) => mapStore.setRiverLevel(parseInt(e.currentTarget.value, 10))}
         />
@@ -156,16 +159,17 @@
     </div>
 
     <!-- Terrain Frequencies (Single-Tier) -->
-    <div class="section px-0 pb-0 border-none">
-      <h2>Terrain Frequencies</h2>
-      <div class="terrain-frequency-container">
+    <div class="mt-3.5 pt-3.5 border-t border-[var(--panel-border)]">
+      <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">Terrain Frequencies</h2>
+      <div class="flex flex-col gap-2">
         {#each mapStore.activeTheme.biomes as biome}
-          <div class="biome-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #242f3d; padding-bottom: 6px;">
-            <span class="biome-title" style="margin-bottom: 0; font-size: 0.8rem;">{biome.name}</span>
-            <div class="freq-picker">
+          <div class="flex justify-between items-center border-b border-[var(--panel-border)]/50 pb-2 last:border-none">
+            <span class="text-[0.85rem] font-semibold text-[var(--text-main)] flex items-center gap-1.5">{biome.name}</span>
+            <div class="flex gap-1 bg-[var(--bg-color)] p-0.5 rounded border border-[var(--panel-border)]">
               {#each [0, 1, 2, 3] as lvl}
                 <button
-                  class="freq-btn {biome.frequency === lvl ? 'active' : ''}"
+                  type="button"
+                  class="px-2 py-0.5 text-[0.75rem] rounded bg-transparent border-none text-[var(--text-muted)] cursor-pointer transition-colors hover:text-[var(--text-main)] {biome.frequency === lvl ? '!bg-[var(--accent)] !text-white font-bold shadow-xs' : ''}"
                   onclick={() => mapStore.setBiomeFrequency(biome.id, lvl as FrequencyLevel)}
                 >
                   {lvl}
@@ -178,31 +182,32 @@
     </div>
   </div>
 
-  <div class="section">
-    <h2>Grid Settings</h2>
+  <div class="p-4 border-b border-[var(--panel-border)]">
+    <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">Grid Settings</h2>
 
-    <div class="control-group toggle-group">
-      <label for="showCoordinates" class="toggle-label">
+    <div class="flex flex-col gap-1.5 mb-3.5">
+      <label for="showCoordinates" class="flex items-center gap-2.5 text-[0.85rem] font-medium text-[var(--text-main)] cursor-pointer">
         <input 
           type="checkbox" 
           id="showCoordinates" 
+          class="accent-[var(--accent)] cursor-pointer w-4 h-4"
           bind:checked={mapStore.showCoordinates} 
         />
-        <span>Show Hex Coordinates <kbd class="shortcut-tag">C</kbd></span>
+        <span>Show Hex Coordinates <kbd class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-muted)] rounded px-1.5 py-0.5 text-[0.7rem] font-mono ml-1">C</kbd></span>
       </label>
     </div>
 
-    <div class="control-group">
-      <label for="borderStyleSelect">Hex Border Style</label>
-      <select id="borderStyleSelect" value={mapStore.borderStyle} onchange={handleBorderStyleChange}>
+    <div class="flex flex-col gap-1.5 mb-3.5">
+      <label for="borderStyleSelect" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Hex Border Style</label>
+      <select id="borderStyleSelect" class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-main)] px-3 py-2 rounded-md text-[0.85rem] outline-none transition-colors focus:border-[var(--accent)] cursor-pointer" value={mapStore.borderStyle} onchange={handleBorderStyleChange}>
         <option value="standard">Standard (Medium)</option>
         <option value="subtle">Subtle (Faint)</option>
       </select>
     </div>
 
-    <div class="control-group">
-      <label for="gridSize">Grid Bounds</label>
-      <select id="gridSize" value={mapStore.gridCols} onchange={handleBoundsChange}>
+    <div class="flex flex-col gap-1.5 mb-3.5">
+      <label for="gridSize" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Grid Bounds</label>
+      <select id="gridSize" class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-main)] px-3 py-2 rounded-md text-[0.85rem] outline-none transition-colors focus:border-[var(--accent)] cursor-pointer" value={mapStore.gridCols} onchange={handleBoundsChange}>
         <option value={6}>6 x 6 Hexes (Compact)</option>
         <option value={7}>7 x 7 Hexes</option>
         <option value={8}>8 x 8 Hexes (Standard)</option>
@@ -211,27 +216,27 @@
       </select>
     </div>
 
-    <div class="control-group">
-      <label for="orientation">Alignment Orientation</label>
-      <select id="orientation" value={mapStore.orientation} onchange={handleOrientationChange}>
+    <div class="flex flex-col gap-1.5 mb-3.5">
+      <label for="orientation" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Alignment Orientation</label>
+      <select id="orientation" class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-main)] px-3 py-2 rounded-md text-[0.85rem] outline-none transition-colors focus:border-[var(--accent)] cursor-pointer" value={mapStore.orientation} onchange={handleOrientationChange}>
         <option value="pointy">Pointy-Topped (Columns Aligned)</option>
         <option value="flat">Flat-Topped (Rows Aligned)</option>
       </select>
     </div>
 
-    <div class="control-group">
-      <label for="mapSeed">PRNG Seed</label>
-      <input type="text" id="mapSeed" bind:value={customSeedInput} onchange={handleCustomSeed} />
+    <div class="flex flex-col gap-1.5 mb-3.5">
+      <label for="mapSeed" class="text-[0.75rem] font-medium text-[var(--text-muted)]">PRNG Seed</label>
+      <input type="text" id="mapSeed" class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-main)] px-3 py-2 rounded-md text-[0.85rem] outline-none transition-colors focus:border-[var(--accent)]" bind:value={customSeedInput} onchange={handleCustomSeed} />
     </div>
 
-    <div class="btn-row">
-      <button class="primary" onclick={handleGenerateNew}>Roll New Map</button>
-      <button onclick={handleCustomSeed}>Apply Seed</button>
+    <div class="grid grid-cols-2 gap-2.5 mt-3">
+      <button type="button" class="bg-[var(--success)] hover:bg-[var(--success-hover)] text-white font-bold py-2 px-3 rounded-md text-[0.85rem] cursor-pointer transition-colors shadow-sm" onclick={handleGenerateNew}>Roll New Map</button>
+      <button type="button" class="bg-[var(--bg-color)] border border-[var(--panel-border)] hover:bg-[var(--panel-border)] text-[var(--text-main)] font-bold py-2 px-3 rounded-md text-[0.85rem] cursor-pointer transition-colors" onclick={handleCustomSeed}>Apply Seed</button>
     </div>
   </div>
 
-  <div class="section export-section">
-    <button class="primary export-btn" onclick={handleExportPNG}>Export Map as High-Res PNG</button>
+  <div class="p-4 mt-auto">
+    <button type="button" class="w-full bg-[var(--success)] hover:bg-[var(--success-hover)] text-white font-bold py-2.5 px-4 rounded-md text-[0.85rem] cursor-pointer transition-colors shadow-sm" onclick={handleExportPNG}>Export Map as High-Res PNG</button>
   </div>
 </aside>
 
@@ -242,243 +247,7 @@
     width: 340px;
     min-width: 340px;
     max-width: 340px;
-    background: var(--panel-bg, #111620);
-    border-right: 1px solid var(--panel-border, #242f3d);
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    z-index: 10;
     height: 100vh;
     box-sizing: border-box;
-  }
-
-  .section {
-    padding: 16px;
-    border-bottom: 1px solid var(--panel-border, #242f3d);
-  }
-
-  .edit-mode-section {
-    background: rgba(16, 185, 129, 0.03);
-    transition: background 0.2s ease;
-  }
-
-  .edit-mode-section.active-edit {
-    background: rgba(16, 185, 129, 0.08);
-    border-left: 3px solid #10b981;
-  }
-
-  .edit-toggle-btn {
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    background: #1e293b;
-    border: 1px solid #334155;
-    color: #94a3b8;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .edit-toggle-btn.active {
-    background: #10b981;
-    color: #fff;
-    border-color: #059669;
-    font-weight: bold;
-  }
-
-  .edit-hint {
-    font-size: 0.75rem;
-    color: #34d399;
-    margin-bottom: 8px;
-    font-style: italic;
-  }
-
-  .brush-palette {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 180px;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-
-  .brush-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #182230;
-    border: 1px solid #242f3d;
-    padding: 6px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    text-align: left;
-    width: 100%;
-    color: #cbd5e1;
-    font-size: 0.8rem;
-  }
-
-  .brush-item:hover {
-    background: #223043;
-    border-color: #38bdf8;
-  }
-
-  .brush-item.selected {
-    background: #0f3d31;
-    border-color: #10b981;
-    color: #fff;
-    font-weight: 600;
-  }
-
-  .color-badge {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-
-  .header h1 {
-    font-size: 1.15rem;
-    color: #fff;
-    margin-bottom: 4px;
-  }
-
-  .subtitle {
-    font-size: 0.8rem;
-    color: var(--text-muted, #94a3b8);
-  }
-
-  h2 {
-    font-size: 0.8rem;
-    color: var(--accent, #38bdf8);
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .level-indicator {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--accent, #38bdf8);
-  }
-
-  .biome-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-main, #e2e8f0);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-
-  .toggle-group {
-    margin-bottom: 14px;
-  }
-
-  .toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: var(--text-main, #e2e8f0);
-    cursor: pointer;
-  }
-
-  .shortcut-tag {
-    background: #1e293b;
-    border: 1px solid #334155;
-    color: #94a3b8;
-    border-radius: 4px;
-    padding: 1px 5px;
-    font-size: 0.7rem;
-    font-family: monospace;
-    margin-left: 4px;
-  }
-
-  input, select, button {
-    background: #1c2430;
-    border: 1px solid var(--panel-border, #242f3d);
-    color: var(--text-main, #e2e8f0);
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    outline: none;
-    transition: all 0.15s ease;
-  }
-
-  input[type="range"] {
-    accent-color: var(--accent, #38bdf8);
-    cursor: pointer;
-    padding: 0;
-  }
-
-  input[type="checkbox"] {
-    width: auto;
-    padding: 0;
-    cursor: pointer;
-  }
-
-  input:focus, select:focus {
-    border-color: var(--accent, #38bdf8);
-  }
-
-  .freq-picker {
-    display: flex;
-    gap: 2px;
-  }
-
-  .freq-btn {
-    padding: 2px 6px;
-    font-size: 0.7rem;
-    border-radius: 4px;
-    background: #1e293b;
-    border: none;
-    color: #64748b;
-    cursor: pointer;
-  }
-
-  .freq-btn.active {
-    background: #3b82f6;
-    color: #fff;
-    font-weight: bold;
-  }
-
-  .btn-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 6px;
-  }
-
-  button {
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  button:hover {
-    background: var(--panel-border, #242f3d);
-  }
-
-  button.primary {
-    background: var(--success, #10b981);
-    border-color: var(--success-hover, #059669);
-    color: #fff;
-  }
-
-  button.primary:hover {
-    background: var(--success-hover, #059669);
-  }
-
-  .export-section {
-    border-bottom: none;
-    margin-top: auto;
-  }
-
-  .export-btn {
-    width: 100%;
   }
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import './app.css';
   import { onMount } from 'svelte';
   import { initHotkeyListener } from './services/hotkeyService';
   import Sidebar from './lib/components/Sidebar.svelte';
@@ -13,7 +14,7 @@
   });
 </script>
 
-<main class="app-layout">
+<main class="app-layout" data-theme={mapStore.themeId}>
   <Sidebar />
   <div class="canvas-viewport">
     <HexCanvas />
