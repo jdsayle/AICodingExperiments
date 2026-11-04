@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Orbitron:wght@600;700&family=Inter:wght@400;500;600&family=Special+Elite&family=Fira+Code:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -5,14 +6,30 @@
   --font-fantasy-body: 'Lora', serif;
   
   --font-scifi: 'Orbitron', sans-serif;
-  --font-scifi-body: 'Inter', sans-serif;
+  --font-scifi-body: 'Fira Code', monospace;
   
-  --font-apoc: 'Roboto Slab', serif;
+  --font-apoc: 'Special Elite', cursive;
   --font-apoc-body: 'Bitter', serif;
 }
 
-/* Base Theme Variables */
+/* Base Theme Variables (Fallback / Root) */
 :root {
+  --bg-color: #141412;
+  --panel-bg: #1c1a17;
+  --panel-border: #2c2824;
+  --panel-border-hover: #443c36;
+  --text-main: #d1d5db;
+  --text-muted: #9ca3af;
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --success: #10b981;
+  --success-hover: #059669;
+  --font-heading: var(--font-apoc);
+  --font-body: var(--font-apoc-body);
+}
+
+/* Explicit Post-Apocalyptic Theme Selector */
+[data-theme="post_apoc"] {
   --bg-color: #141412;
   --panel-bg: #1c1a17;
   --panel-border: #2c2824;
@@ -59,7 +76,7 @@
 
 /* Global Font and Body Defaults */
 body {
-  font-family: var(--font-body) !important;
+  font-family: var(--font-body);
   background: var(--bg-color);
   color: var(--text-main);
   height: 100vh;
@@ -72,64 +89,37 @@ h1, h2, h3, h4, th {
 }
 
 input, select, button, textarea {
-  font-family: var(--font-body) !important;
+  font-family: var(--font-body);
 }
 
-/* Consolidated Optical Size Compensation (Post-Apoc & Fantasy) */
+/* Clean, standardized sidebar structure without padding hacks */
+#sidebar {
+  width: 340px;
+  min-width: 340px;
+  max-width: 340px;
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+#sidebar > div:not(:first-child) {
+  margin-top: 0.5rem;
+}
+
+#sidebar > div:first-child {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Optically equalize app title and heading sizes across all themes */
 [data-theme="post_apoc"] h1,
-[data-theme="fantasy"] h1 {
-  font-size: 1.05rem !important;
-}
+:root h1 {
+  font-size: 1.2rem !important; /* Bumps up Special Elite / Post-Apocalyptic h1 to match Fantasy & Sci-Fi */
+} 
 
-[data-theme="post_apoc"] h2,
-[data-theme="fantasy"] h2,
-[data-theme="post_apoc"] .text-xs,
-[data-theme="fantasy"] .text-xs {
-  font-size: 0.800rem !important;
-}
-
-[data-theme="post_apoc"] input,
-[data-theme="post_apoc"] select,
-[data-theme="post_apoc"] button,
-[data-theme="post_apoc"] .text-\[0\.85rem\],
-[data-theme="fantasy"] input,
-[data-theme="fantasy"] select,
-[data-theme="fantasy"] button,
-[data-theme="fantasy"] .text-\[0\.85rem\] {
-  font-size: 0.900rem !important;
-}
-
-/* Sidebar Layout & Shift Stabilization */
-:root {
-  --section-padding: 1rem;
-  --item-gap: 0.875rem;
-}
-
-#sidebar h1, 
-#sidebar h2, 
-#sidebar label, 
-#sidebar button, 
-#sidebar select, 
-#sidebar input {
-  line-height: 1.25 !important;
-}
-
-#sidebar > div {
-  padding: var(--section-padding) !important;
-  box-sizing: border-box;
-}
-
-#sidebar .flex.flex-col {
-  gap: var(--item-gap);
-}
-
-#sidebar select, 
-#sidebar input[type="text"] {
-  height: 2.25rem;
-  box-sizing: border-box;
-}
-
-/* Exact vertical alignment compensation for Sci-Fi panels */
-[data-theme="sci_fi"] #sidebar > div {
-  padding-top: calc(var(--section-padding) + 1px) !important;
+/* Optically scale up Speical Elite font headings for Post-Apocalyptic theme */
+[data-theme="post_apoc"] h2 {
+  font-size: calc(0.75em + 0.055rem) !important; /* Scales up Speical Elite headings to match Cinzel/Orbitron optical weight */
+  letter-spacing: 0.075em;                    /* Enhances legibility at the larger size */
 }

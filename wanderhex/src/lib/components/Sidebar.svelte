@@ -72,7 +72,7 @@
 
 <aside id="sidebar" class="w-[340px] min-w-[340px] max-w-[340px] bg-[var(--panel-bg)] border-r border-[var(--panel-border)] flex flex-col overflow-y-auto overflow-x-hidden z-10 h-screen box-border select-none pr-1">
   <div class="p-4 border-b border-[var(--panel-border)]">
-    <h1 class="text-base font-bold text-[var(--text-main)] mb-1 tracking-wide">Tactical Hex Engine</h1>
+    <h1 class="text-base font-bold text-[var(--text-main)] mb-1 tracking-wide">WanderHex</h1>
     <p class="text-[0.75rem] text-[var(--text-muted)] tracking-wider uppercase font-medium">Multi-Genre Procedural Cartography</p>
   </div>
 
@@ -91,7 +91,7 @@
     </div>
 
     {#if mapStore.isEditing}
-      <p class="text-[0.75rem] text-[var(--success)] mb-2 italic">Click any tile on the map to paint with the selected brush.</p>
+      <p class="text-[0.75rem] text-[var(--success)] mb-2 italic">Clicking a tile on the map will replace it with the selected terrain.</p>
       <div class="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto pr-1">
         {#each mapStore.activeTheme.biomes as biome}
           <button
@@ -109,9 +109,9 @@
   </div>
 
   <div class="p-4 border-b border-[var(--panel-border)]">
-    <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">World Genre & Theme</h2>
+    <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">Game Genre / Theme</h2>
     <div class="flex flex-col gap-1.5 mb-3.5">
-      <label for="themeSelect" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Theme Preset</label>
+      <!-- <label for="themeSelect" class="text-[0.75rem] font-medium text-[var(--text-muted)]">Theme Preset</label> -->
       <select id="themeSelect" class="bg-[var(--bg-color)] border border-[var(--panel-border)] text-[var(--text-main)] px-3 py-2 rounded-md text-[0.85rem] outline-none transition-colors focus:border-[var(--accent)] cursor-pointer" value={mapStore.themeId} onchange={handleThemeChange}>
         {#each themeList as theme}
           <option value={theme.id}>{theme.name}</option>
@@ -121,7 +121,7 @@
 
     <!-- Roads & Rivers Sliders -->
     <div class="mt-3.5 pt-3.5 border-t border-[var(--panel-border)]">
-      <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">Linear Features (Roads & Rivers)</h2>
+      <h2 class="text-xs font-bold text-[var(--accent)] uppercase tracking-wider mb-2.5">Roads & Rivers</h2>
       
       <div class="flex flex-col gap-1.5 mb-3.5">
         <div class="flex justify-between items-center">
@@ -164,7 +164,7 @@
       <div class="flex flex-col gap-2">
         {#each mapStore.activeTheme.biomes as biome}
           <div class="flex justify-between items-center border-b border-[var(--panel-border)]/50 pb-2 last:border-none">
-            <span class="text-[0.85rem] font-semibold text-[var(--text-main)] flex items-center gap-1.5">{biome.name}</span>
+            <span class="terrain-freq-label text-[0.85rem] font-semibold text-[var(--text-main)] flex items-center gap-1.5">{biome.name}</span>
             <div class="flex gap-1 bg-[var(--bg-color)] p-0.5 rounded border border-[var(--panel-border)]">
               {#each [0, 1, 2, 3] as lvl}
                 <button

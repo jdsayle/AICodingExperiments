@@ -403,7 +403,8 @@
 
       ctx.restore();
 
-      // Hex Borders & Hover State (Always rendered now between Standard and Subtle)
+      // Hex Borders & Hover State (Dynamic theme mapping)
+      // Hex Borders & Hover State
       const isHovered = hoveredHex && hoveredHex.col === hex.col && hoveredHex.row === hex.row;
 
       ctx.beginPath();
