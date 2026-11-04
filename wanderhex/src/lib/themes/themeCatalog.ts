@@ -6,6 +6,7 @@ export const THEME_CATALOG: Record<string, ThemeDefinition> = {
     name: 'Post-Apocalyptic',
     biomes: [
       { id: 'postapoc_plains', name: 'Plains', description: 'Open expanses of waste and dirt', hexColor: '#CCFF00', iconColor: '#000000', icon: 'blighted_waste', frequency: 1 },
+      { id: 'postapoc_blightedwastes', name: 'Blighted Wastes', description: 'Contaminated wasteslands: proceed with caution', hexColor: '#334155', iconColor: '#ffffff', icon: 'slow_fire', frequency: 1 },
       { id: 'postapoc_desert', name: 'Desert', description: 'Sun-baked arid wasteland dunes', hexColor: '#382A25', iconColor: '#ffffff', icon: 'scorched_wasteland', frequency: 1 },
       { id: 'postapoc_forest_sparse', name: 'Forest - Sparse', description: 'Thinly scattered dead or mutated trees', hexColor: '#6B8E23', iconColor: '#000000', icon: 'mutated_forest', frequency: 1 },
       { id: 'postapoc_forest_dense', name: 'Forest - Dense', description: 'Thick overgrown mutated thickets', hexColor: '#1e532b', iconColor: '#ffffff', icon: 'resurgent_wilds', frequency: 1 },
@@ -14,7 +15,6 @@ export const THEME_CATALOG: Record<string, ThemeDefinition> = {
       { id: 'postapoc_jungle', name: 'Jungle', description: 'Fleshy, humid biological infestation zones', hexColor: '#1A1625', iconColor: '#ffffff', icon: 'necrotic_sprawl', frequency: 1 },
       { id: 'postapoc_swamp', name: 'Swamp', description: 'Radioactive toxic fens and sludge pools', hexColor: '#3f6212', iconColor: '#ffffff', icon: 'choked_riverbed', frequency: 1 },
       { id: 'postapoc_mountain', name: 'Mountain', description: 'Towering jagged slag and concrete peaks', hexColor: '#64748b', iconColor: '#ffffff', icon: 'broken_highway', frequency: 1 },
-      { id: 'postapoc_mountain_with_forest', name: 'Mountain with Forest', description: 'Rugged crags blanketed by mutated canopy', hexColor: '#334155', iconColor: '#ffffff', icon: 'slow_fire', frequency: 1 },
       { id: 'postapoc_water', name: 'Water', description: 'Choked waterways and chemical basins', hexColor: '#0284c7', iconColor: '#ffffff', icon: '🌊', frequency: 1 },
       { id: 'postapoc_sub_arctic', name: 'Sub-Arctic', description: 'Frozen fallout and nuclear winter zones', hexColor: '#cbd5e1', iconColor: '#000000', icon: '❄️', frequency: 1 }
     ],
@@ -32,7 +32,7 @@ export const THEME_CATALOG: Record<string, ThemeDefinition> = {
   },
   fantasy: {
     id: 'fantasy',
-    name: 'High Fantasy',
+    name: 'Fantasy',
     biomes: [
       { id: 'fantasy_plains', name: 'Plains', description: 'Verdant open downs and grasslands', hexColor: '#84cc16', iconColor: '#000000', icon: '🌾', frequency: 1 },
       { id: 'fantasy_desert', name: 'Desert', description: 'Vast sun-scorched sand dunes', hexColor: '#d97706', iconColor: '#000000', icon: '☀️', frequency: 1 },

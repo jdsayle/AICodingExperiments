@@ -176,10 +176,6 @@
         {/each}
       </div>
     </div>
-
-    <button class="btn-tile-mgr" onclick={() => (isTileModalOpen = true)}>
-      🎨 Manage Custom Tile Textures
-    </button>
   </div>
 
   <div class="section">
@@ -475,18 +471,6 @@
 
   button.primary:hover {
     background: var(--success-hover, #059669);
-  }
-
-  .btn-tile-mgr {
-    width: 100%;
-    margin-top: 4px;
-    background: #1b2838;
-    border-color: #2e4157;
-    color: #7dd3fc;
-  }
-
-  .btn-tile-mgr:hover {
-    background: #25374d;
   }
 
   .export-section {
