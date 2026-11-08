@@ -611,7 +611,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #080c14;
+    background: var(--bg-color); /* Dynamically match theme background */
     overflow: hidden;
   }
 
@@ -623,9 +623,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(16, 22, 34, 0.85);
+    background: var(--panel-bg);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--panel-border);
     padding: 6px 10px;
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -633,9 +633,9 @@
   }
 
   .zoom-btn, .reset-btn {
-    background: #1e293b;
-    color: #f8fafc;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-color);
+    color: var(--text-main);
+    border: 1px solid var(--panel-border);
     border-radius: 4px;
     font-weight: bold;
     cursor: pointer;
@@ -658,8 +658,8 @@
   }
 
   .zoom-btn:hover, .reset-btn:hover {
-    background: #334155;
-    border-color: #38bdf8;
+    background: var(--panel-border);
+    border-color: var(--accent);
   }
 
   .zoom-btn:active, .reset-btn:active {
@@ -667,7 +667,7 @@
   }
 
   .zoom-level {
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 12px;
     font-family: monospace;
     min-width: 38px;
@@ -680,13 +680,13 @@
     left: 16px;
     z-index: 20;
     width: 240px;
-    background: rgba(16, 22, 34, 0.85);
+    background: var(--panel-bg);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--panel-border);
     border-radius: 8px;
     padding: 10px 12px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-    color: #f8fafc;
+    color: var(--text-main);
     user-select: none;
     pointer-events: auto;
   }
@@ -697,7 +697,7 @@
     justify-content: space-between;
     margin-bottom: 8px;
     padding-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--panel-border);
   }
 
   .hud-title {
@@ -705,13 +705,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #38bdf8;
+    color: var(--accent);
   }
 
   .hud-toggle-btn {
     background: transparent;
     border: none;
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
@@ -721,8 +721,8 @@
   }
 
   .hud-toggle-btn:hover {
-    color: #f8fafc;
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+    background: var(--panel-border);
   }
 
   .hud-body {
@@ -739,42 +739,42 @@
   }
 
   .hud-label {
-    color: #94a3b8;
+    color: var(--text-muted);
     font-weight: 500;
   }
 
   .hud-coord {
     font-family: monospace;
-    color: #cbd5e1;
+    color: var(--text-main);
   }
 
   .hud-value {
     font-weight: 600;
-    color: #f8fafc;
+    color: var(--text-main);
   }
 
   .hud-icon-val {
     font-family: monospace;
     font-size: 12px;
-    color: #38bdf8;
+    color: var(--accent);
   }
 
   .hud-poi-val {
     font-weight: 700;
-    color: #f59e0b;
+    color: var(--accent);
   }
 
   .hud-description {
     font-size: 12px;
     line-height: 1.35;
-    color: #94a3b8;
+    color: var(--text-muted);
     margin-top: 4px;
     white-space: normal;
   }
 
   .hud-placeholder {
     font-size: 12px;
-    color: #64748b;
+    color: var(--text-muted);
     font-style: italic;
     padding: 4px 0;
   }
@@ -787,31 +787,29 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(16, 22, 34, 0.85);
+    background: var(--panel-bg);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--panel-border);
     border-radius: 20px;
     padding: 6px 12px;
-    color: #f8fafc;
+    color: var(--text-main);
     cursor: pointer;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     transition: background 0.15s ease, border-color 0.15s ease;
   }
 
   .hud-pill:hover {
-    background: #1e293b;
-    border-color: #38bdf8;
+    background: var(--panel-border);
+    border-color: var(--accent);
   }
 
   .hud-pill-icon {
     font-size: 12px;
-    color: #38bdf8;
+    color: var(--accent);
   }
 
   canvas {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-    background: #101622;
-    border-radius: 10px;
+    background: var(--bg-color); /* Match canvas background to active theme */
     cursor: crosshair;
   }
 

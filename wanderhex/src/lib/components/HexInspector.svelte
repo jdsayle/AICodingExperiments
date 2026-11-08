@@ -41,21 +41,21 @@
 <style>
   .inspector-section {
     padding: 16px;
-    border-bottom: 1px solid var(--panel-border, #242f3d);
+    border-bottom: 1px solid var(--panel-border);
     flex: 1;
   }
 
   h3 {
     font-size: 0.8rem;
-    color: var(--accent, #38bdf8);
+    color: var(--accent);
     margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .inspector-card {
-    background: #0d121c;
-    border: 1px solid var(--panel-border, #242f3d);
+    background: var(--bg-color); /* Uses active theme background */
+    border: 1px solid var(--panel-border);
     border-radius: 6px;
     padding: 12px;
   }
@@ -66,7 +66,7 @@
     gap: 8px;
     font-weight: bold;
     font-size: 0.95rem;
-    color: #fff;
+    color: var(--text-main);
     margin-bottom: 6px;
   }
 
@@ -80,7 +80,7 @@
 
   .biome-desc {
     font-size: 0.8rem;
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-muted);
     margin-bottom: 10px;
     line-height: 1.3;
   }
@@ -89,7 +89,7 @@
     display: flex;
     justify-content: space-between;
     padding: 4px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--panel-border);
     font-size: 0.8rem;
   }
 
@@ -98,17 +98,17 @@
   }
 
   .data-label {
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-muted);
   }
 
   .data-value {
     font-weight: 600;
-    color: #fff;
+    color: var(--text-main);
   }
 
   .empty-state p {
     font-size: 0.8rem;
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-muted);
     font-style: italic;
   }
 </style>
