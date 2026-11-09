@@ -9,6 +9,73 @@ SAVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "osr_campai
 DEFAULT_CAMPAIGN_NAME = "DeathMaze: Deluxe"
 LEGACY_CAMPAIGN_NAMES = {"DeathMaze Deluxe", "Dungeon of the Iron Lord"}
 
+
+def special_item_entries(special_items, category):
+    entries = special_items.get(category, [])
+    if isinstance(entries, dict):
+        entries = [entries]
+    if not isinstance(entries, list):
+        return []
+
+    merged_entries = []
+    entries_by_name = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or not entry.get("name"):
+            continue
+        name = entry["name"]
+        if name in entries_by_name:
+            entries_by_name[name]["quantity"] += int(entry.get("quantity", 0))
+        else:
+            merged = {
+                **entry,
+                "quantity": int(entry.get("quantity", 0)),
+            }
+            entries_by_name[name] = merged
+            merged_entries.append(merged)
+    return merged_entries
+
+
+def normalize_special_items(special_items):
+    return {
+        category: special_item_entries(special_items, category)
+        for category in game_catalogs.ITEM_CATEGORIES
+    }
+
+
+def effective_magic_resistance(character):
+    class_name = character.get("class_name")
+    if class_name == "Charmed Monster":
+        return None
+
+    base_resistance = character.get(
+        "magic_resistance",
+        game_catalogs.STARTING_MAGIC_RESISTANCE.get(class_name, 1),
+    )
+    special_items = character.get(
+        "special_items",
+        character.get("hero_items", {}),
+    )
+    ring_bonus = sum(
+        game_catalogs.RING_RESISTANCE_BONUSES.get(item.get("name"), 0)
+        * max(0, int(item.get("quantity", 0)))
+        for item in special_item_entries(special_items, "Rings")
+    )
+    return min(5, int(base_resistance) + ring_bonus)
+
+
+def equipped_weapon(character):
+    return next(
+        (weapon for weapon in character.get("weapons", []) if weapon.get("equipped")),
+        None,
+    )
+
+
+def weapon_combat_total(weapon):
+    return int(weapon.get("weapon_skill", 0)) + int(
+        weapon.get("combat_bonus", 0)
+    )
+
+
 class CharacterManagerApp:
     def __init__(self, page: ft.Page):
         self.page = page
@@ -27,6 +94,7 @@ class CharacterManagerApp:
                     "strength": 16,
                     "hp_current": 10,
                     "hp_max": 12,
+                    "magic_resistance": 1,
                     "magic_current": 0,
                     "magic_max": 0,
                     "inventory": [{"name": "Rations", "quantity": 5, "effects": "Restores hunger"}, {"name": "Torch", "quantity": 3, "effects": "Burns for 1 hour"}],
@@ -39,6 +107,7 @@ class CharacterManagerApp:
                     "strength": 9,
                     "hp_current": 4,
                     "hp_max": 4,
+                    "magic_resistance": 1,
                     "magic_current": 2,
                     "magic_max": 3,
                     "inventory": [{"name": "Spellbook", "quantity": 1, "effects": "Contains arcane formulas"}, {"name": "Dagger", "quantity": 1, "effects": "Light melee"}],
@@ -168,7 +237,8 @@ class CharacterManagerApp:
             is_hero = char.get("class_name") == "Hero"
             is_thief = char.get("class_name") == "Thief"
             
-            inv_count = len(char.get("inventory", []))
+            can_carry_items = char.get("class_name") != "Charmed Monster"
+            inv_count = len(char.get("inventory", [])) if can_carry_items else 0
             wpn_count = len(char.get("weapons", []))
             spell_count = len(char.get("spells", []))
             can_have_spells = char.get("class_name") in game_catalogs.SPELLCASTING_CLASSES
@@ -176,11 +246,14 @@ class CharacterManagerApp:
                 "special_items",
                 char.get("hero_items", {}),
             )
-            inv_count += sum(
-                item.get("quantity", 0)
-                for item in special_items.values()
-                if isinstance(item, dict)
-            )
+            if can_carry_items:
+                inv_count += sum(
+                    entry.get("quantity", 0)
+                    for category in game_catalogs.ITEM_CATEGORIES
+                    for entry in special_item_entries(special_items, category)
+                )
+            magic_resistance = effective_magic_resistance(char)
+            equipped = equipped_weapon(char)
             if is_hero:
                 weapon_skill_text = ", ".join(
                     f"+{weapon.get('weapon_skill', 0)}, {weapon['name']}"
@@ -190,19 +263,14 @@ class CharacterManagerApp:
                 character_stats = ft.Row(
                     [
                         ft.Text(f"HP: {char['hp_current']} / {char['hp_max']}", weight=ft.FontWeight.W_500),
-                        ft.Text(f"MR: {char.get('magic_resistance', 1)} / 5"),
+                        ft.Text(f"MR: {magic_resistance} / 5"),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 )
                 class_details = [
                     ft.Text(f"Level: {char.get('level', 1)}"),
+                    ft.Container(height=24),
                     ft.Text(f"Weapon Skill: {weapon_skill_text}", size=12),
-                    ft.Text(
-                        f"XP: {char.get('experience_points', 0)} | "
-                        f"Beazants: {char.get('beazants', 0)}",
-                        size=12,
-                        color=tertiary_text_color,
-                    ),
                 ]
             elif is_thief:
                 weapon_skill_text = ", ".join(
@@ -216,7 +284,7 @@ class CharacterManagerApp:
                             f"HP: {char['hp_current']} / {char['hp_max']}",
                             weight=ft.FontWeight.W_500,
                         ),
-                        ft.Text(f"MR: {char.get('magic_resistance', 1)} / 5"),
+                        ft.Text(f"MR: {magic_resistance} / 5"),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 )
@@ -224,17 +292,37 @@ class CharacterManagerApp:
                     ft.Text(f"Level: {char.get('level', 1)}"),
                     ft.Row(
                         [
+                            ft.Text(f"Detrap: {char.get('detrap', 1)}", size=12),
                             ft.IconButton(
-                                icon=ft.Icons.REMOVE_ROUNDED,
-                                icon_size=18,
+                                icon=ft.Icons.REMOVE,
+                                icon_size=14,
+                                padding=0,
+                                width=24,
+                                height=24,
+                                visual_density=ft.VisualDensity.COMPACT,
+                                size_constraints=ft.BoxConstraints(
+                                    min_width=24,
+                                    min_height=24,
+                                    max_width=24,
+                                    max_height=24,
+                                ),
                                 tooltip="Decrease Detrap",
                                 disabled=char.get("detrap", 1) <= 0,
                                 on_click=lambda e, idx=index: self.adjust_detrap(idx, -1),
                             ),
-                            ft.Text(f"Detrap: {char.get('detrap', 1)}"),
                             ft.IconButton(
-                                icon=ft.Icons.ADD_ROUNDED,
-                                icon_size=18,
+                                icon=ft.Icons.ADD,
+                                icon_size=14,
+                                padding=0,
+                                width=24,
+                                height=24,
+                                visual_density=ft.VisualDensity.COMPACT,
+                                size_constraints=ft.BoxConstraints(
+                                    min_width=24,
+                                    min_height=24,
+                                    max_width=24,
+                                    max_height=24,
+                                ),
                                 tooltip="Increase Detrap",
                                 disabled=char.get("detrap", 1) >= 5,
                                 on_click=lambda e, idx=index: self.adjust_detrap(idx, 1),
@@ -251,10 +339,33 @@ class CharacterManagerApp:
                         ft.Text(f"HP: {char['hp_current']} / {char['hp_max']}", weight=ft.FontWeight.W_500),
                         ft.Text(f"STR: {char['strength']}"),
                         ft.Text(f"MAG: {char['magic_current']}/{char['magic_max']}" if char['magic_max'] > 0 else "MAG: N/A"),
+                        *(
+                            [ft.Text(f"MR: {magic_resistance} / 5")]
+                            if magic_resistance is not None
+                            else []
+                        ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 )
-                class_details = []
+                class_details = [ft.Container(height=24)]
+
+            class_details.append(
+                ft.Text(
+                    f"Equipped: {equipped['name']} "
+                    f"(+{weapon_combat_total(equipped)} combat)",
+                    size=12,
+                )
+                if equipped
+                else ft.Container(height=0)
+            )
+            class_details.append(
+                ft.Text(
+                    f"XP: {char.get('experience_points', 0)} | "
+                    f"Beazants: {char.get('beazants', 0)}",
+                    size=12,
+                    color=tertiary_text_color,
+                )
+            )
 
             card_details = ft.Container(
                 content=ft.Column(
@@ -274,10 +385,18 @@ class CharacterManagerApp:
                         *class_details,
                         ft.Divider(height=10),
                         ft.Text(
-                            f"Items: {inv_count} | Weapons: {wpn_count} | "
-                            f"Spells: {spell_count}"
-                            if can_have_spells
-                            else f"Items: {inv_count} | Weapons: {wpn_count}",
+                            (
+                                f"Weapons: {wpn_count} | Spells: {spell_count}"
+                                if can_have_spells
+                                else f"Weapons: {wpn_count}"
+                            )
+                            if not can_carry_items
+                            else (
+                                f"Items: {inv_count} | Weapons: {wpn_count} | "
+                                f"Spells: {spell_count}"
+                                if can_have_spells
+                                else f"Items: {inv_count} | Weapons: {wpn_count}"
+                            ),
                             size=11,
                             color=tertiary_text_color,
                         ),
@@ -327,9 +446,11 @@ class CharacterManagerApp:
             stat_lines.append(
                 f"Magic: {char.get('magic_current', 0)} / {char.get('magic_max', 0)}"
             )
+        magic_resistance = effective_magic_resistance(char)
+        if magic_resistance is not None:
+            stat_lines.append(f"Magic Resistance: {magic_resistance} / 5")
         for key, label in (
             ("level", "Level"),
-            ("magic_resistance", "Magic Resistance"),
             ("detrap", "Detrap"),
             ("experience_points", "Experience Points"),
             ("beazants", "Beazants"),
@@ -343,6 +464,11 @@ class CharacterManagerApp:
                 [
                     str(weapon.get("name", "Weapon")),
                     *(
+                        ["Equipped"]
+                        if weapon.get("equipped")
+                        else []
+                    ),
+                    *(
                         [f"Attack: {weapon['attack_modifier']}"]
                         if weapon.get("attack_modifier")
                         else []
@@ -353,28 +479,41 @@ class CharacterManagerApp:
                         else []
                     ),
                     *(
-                        [f"Weapon Skill: +{weapon['weapon_skill']}"]
+                        [f"Weapon Skill: +{weapon.get('weapon_skill', 0)}"]
                         if weapon.get("weapon_skill", 0)
+                        else []
+                    ),
+                    f"Combat Bonus: +{weapon.get('combat_bonus', 0)}",
+                    *(
+                        [f"Combat Total: +{weapon_combat_total(weapon)}"]
+                        if weapon.get("equipped")
                         else []
                     ),
                 ]
             )
             for weapon in weapons
         ]
-        inventory_lines = [
-            f"{item.get('name', 'Item')} (x{item.get('quantity', 0)})"
-            + (f" - {item['effects']}" if item.get("effects") else "")
-            for item in char.get("inventory", [])
-        ]
-        special_items = char.get(
-            "special_items",
-            char.get("hero_items", {}),
+        inventory_lines = (
+            [
+                f"{item.get('name', 'Item')} (x{item.get('quantity', 0)})"
+                + (f" - {item['effects']}" if item.get("effects") else "")
+                for item in char.get("inventory", [])
+            ]
+            if class_name != "Charmed Monster"
+            else []
         )
-        for category, item in special_items.items():
-            if isinstance(item, dict) and item.get("name"):
-                inventory_lines.append(
-                    f"{category}: {item['name']} (x{item.get('quantity', 0)})"
-                )
+        if class_name != "Charmed Monster":
+            special_items = char.get(
+                "special_items",
+                char.get("hero_items", {}),
+            )
+            for category in game_catalogs.ITEM_CATEGORIES:
+                for item in special_item_entries(special_items, category):
+                    if item.get("name"):
+                        inventory_lines.append(
+                            f"{category}: {item['name']} "
+                            f"(x{item.get('quantity', 0)})"
+                        )
 
         detail_controls = [
             ft.Text(class_name),
@@ -386,13 +525,18 @@ class CharacterManagerApp:
                 ft.Text(line)
                 for line in (weapon_lines or ["No weapons recorded."])
             ],
-            ft.Divider(),
-            ft.Text("Items", weight=ft.FontWeight.BOLD),
-            *[
-                ft.Text(line)
-                for line in (inventory_lines or ["No items recorded."])
-            ],
         ]
+        if class_name != "Charmed Monster":
+            detail_controls.extend(
+                [
+                    ft.Divider(),
+                    ft.Text("Items", weight=ft.FontWeight.BOLD),
+                    *[
+                        ft.Text(line)
+                        for line in (inventory_lines or ["No items recorded."])
+                    ],
+                ]
+            )
         if spellcaster:
             spells = char.get("spells", [])
             detail_controls.extend(
@@ -438,48 +582,326 @@ class CharacterManagerApp:
         char["detrap"] = max(0, min(5, char.get("detrap", 1) + amount))
         self.refresh_grid()
 
+    def build_weapon_editor(self, existing_weapons):
+        weapons = [
+            {
+                **weapon,
+                "weapon_skill": int(weapon.get("weapon_skill", 0)),
+                "combat_bonus": int(weapon.get("combat_bonus", 0)),
+                "equipped": bool(weapon.get("equipped", False)),
+            }
+            for weapon in existing_weapons
+        ]
+        first_equipped = next(
+            (index for index, weapon in enumerate(weapons) if weapon["equipped"]),
+            None,
+        )
+        for index, weapon in enumerate(weapons):
+            weapon["equipped"] = index == first_equipped
+
+        equipped_weapon_field = ft.Dropdown(
+            label="Equipped Weapon",
+            options=[ft.dropdown.Option(key="none", text="None")]
+            + [
+                ft.dropdown.Option(
+                    key=str(index),
+                    text=str(weapon.get("name", "Weapon")),
+                )
+                for index, weapon in enumerate(weapons)
+            ],
+            value=str(first_equipped) if first_equipped is not None else "none",
+        )
+        weapon_rows = ft.Column(spacing=8)
+        weapon_fields = []
+
+        def render_weapons():
+            weapon_rows.controls.clear()
+            weapon_fields.clear()
+            for index, weapon in enumerate(weapons):
+                skill = ft.TextField(
+                    label="Weapon Skill",
+                    value=str(weapon["weapon_skill"]),
+                    width=130,
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                )
+                combat_bonus = ft.TextField(
+                    label="Combat Bonus",
+                    value=str(weapon["combat_bonus"]),
+                    width=130,
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                )
+
+                def remove_weapon(e, weapon_index=index):
+                    weapons.pop(weapon_index)
+                    if equipped_weapon_field.value == str(weapon_index):
+                        equipped_weapon_field.value = "none"
+                    elif equipped_weapon_field.value not in (None, "none"):
+                        selected_index = int(equipped_weapon_field.value)
+                        if selected_index > weapon_index:
+                            equipped_weapon_field.value = str(selected_index - 1)
+                    equipped_weapon_field.options = [
+                        ft.dropdown.Option(key="none", text="None")
+                    ] + [
+                        ft.dropdown.Option(
+                            key=str(i),
+                            text=str(item.get("name", "Weapon")),
+                        )
+                        for i, item in enumerate(weapons)
+                    ]
+                    render_weapons()
+                    self.page.update()
+
+                weapon_rows.controls.append(
+                    ft.Row(
+                        [
+                            ft.Text(str(weapon.get("name", "Weapon")), expand=True),
+                            skill,
+                            combat_bonus,
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                tooltip=f"Remove {weapon['name']}",
+                                on_click=remove_weapon,
+                            ),
+                        ]
+                    )
+                )
+                weapon_fields.append((skill, combat_bonus))
+
+        def add_weapon(e):
+            name_field = ft.TextField(label="Weapon Name")
+            attack_field = ft.TextField(label="Attack Modifier (e.g. +1)")
+            damage_field = ft.TextField(label="Damage (e.g. 1d8)")
+            bonus_field = ft.TextField(
+                label="Combat Bonus",
+                value="0",
+                keyboard_type=ft.KeyboardType.NUMBER,
+            )
+
+            def confirm_add(e):
+                name = (name_field.value or "").strip()
+                try:
+                    combat_bonus = int(bonus_field.value or "0")
+                    if not name or combat_bonus < 0:
+                        raise ValueError
+                except ValueError:
+                    self.page.snack_bar = ft.SnackBar(
+                        ft.Text(
+                            "Enter a weapon name and a non-negative whole-number "
+                            "Combat Bonus."
+                        )
+                    )
+                    self.page.snack_bar.open = True
+                    self.page.update()
+                    return
+
+                equipped = equipped_weapon_field.value in (None, "none")
+                if not name:
+                    name_field.error_text = "Weapon name is required."
+                    name_field.update()
+                    return
+                weapons.append(
+                    {
+                        "name": name,
+                        "attack_modifier": (attack_field.value or "").strip(),
+                        "damage": (damage_field.value or "").strip(),
+                        "weapon_skill": 0,
+                        "combat_bonus": combat_bonus,
+                        "equipped": equipped,
+                    }
+                )
+                if equipped:
+                    equipped_weapon_field.value = str(len(weapons) - 1)
+                equipped_weapon_field.options = [
+                    ft.dropdown.Option(key="none", text="None")
+                ] + [
+                    ft.dropdown.Option(
+                        key=str(index),
+                        text=str(weapon.get("name", "Weapon")),
+                    )
+                    for index, weapon in enumerate(weapons)
+                ]
+                render_weapons()
+                self.page.pop_dialog()
+                self.page.update()
+
+            self.page.show_dialog(
+                ft.AlertDialog(
+                    modal=True,
+                    title=ft.Text("Add Weapon"),
+                    content=ft.Column(
+                        [name_field, attack_field, damage_field, bonus_field],
+                        tight=True,
+                    ),
+                    actions=[
+                        ft.TextButton(
+                            content="Cancel",
+                            on_click=lambda e: self.page.pop_dialog(),
+                        ),
+                        ft.Button(content="Add", on_click=confirm_add),
+                    ],
+                )
+            )
+
+        render_weapons()
+        controls = [
+            ft.Row(
+                [
+                    ft.Text("Weapons", weight=ft.FontWeight.BOLD),
+                    ft.TextButton(content="+ Add Weapon", on_click=add_weapon),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
+            equipped_weapon_field,
+            weapon_rows,
+        ]
+
+        def get_weapon_values():
+            selected = equipped_weapon_field.value
+            result = []
+            for index, (weapon, fields) in enumerate(zip(weapons, weapon_fields)):
+                skill = int(fields[0].value or "0")
+                combat_bonus = int(fields[1].value or "0")
+                if skill < 0 or combat_bonus < 0:
+                    raise ValueError
+                result.append(
+                    {
+                        **weapon,
+                        "weapon_skill": skill,
+                        "combat_bonus": combat_bonus,
+                        "equipped": selected == str(index),
+                    }
+                )
+            return result
+
+        return controls, get_weapon_values
+
     def build_special_items_editor(self, existing_items):
-        item_fields = {}
+        category_fields = {}
+        category_rows = {}
+        add_buttons = {}
         item_rows = []
+
         for category in game_catalogs.ITEM_CATEGORIES:
-            existing_item = existing_items.get(category, {})
+            category_fields[category] = []
+            category_rows[category] = ft.Column(spacing=8)
+
+        def available_options(category, current_dropdown=None):
+            selected_names = {
+                dropdown.value
+                for dropdown, _quantity, _row in category_fields[category]
+                if dropdown is not current_dropdown and dropdown.value
+            }
+            return [
+                option
+                for option in game_catalogs.ITEM_OPTIONS[category]
+                if option not in selected_names
+            ]
+
+        def update_category_options(category):
+            fields = category_fields[category]
+            for dropdown, _quantity, _row in fields:
+                options = available_options(category, dropdown)
+                if dropdown.value and dropdown.value not in options:
+                    options.append(dropdown.value)
+                dropdown.options = [
+                    ft.dropdown.Option(item) for item in options
+                ]
+            add_buttons[category].disabled = not available_options(category)
+
+        def add_item_row(
+            category,
+            existing_item=None,
+            update_controls=True,
+        ):
+            existing_item = existing_item or {}
             existing_name = existing_item.get("name")
-            options = list(game_catalogs.ITEM_OPTIONS[category])
+            options = available_options(category)
             if existing_name and existing_name not in options:
                 options.append(existing_name)
             dropdown = ft.Dropdown(
                 label=category,
-                hint_text="Options will be added later",
+                hint_text="Select an item",
                 options=[ft.dropdown.Option(item) for item in options],
                 value=existing_name,
                 disabled=not options,
+                expand=True,
             )
             quantity = ft.TextField(
                 label="Quantity",
-                value=str(existing_item.get("quantity", 0)),
-                width=120,
+                value=str(existing_item.get("quantity", 1)),
+                width=100,
                 keyboard_type=ft.KeyboardType.NUMBER,
-                disabled=not (options and existing_name),
+                disabled=not bool(existing_name),
             )
+            row = ft.Row([])
 
-            def update_quantity_state(e, quantity_field=quantity):
-                quantity_field.disabled = not bool(e.control.value)
-                quantity_field.update()
+            def update_quantity_state(e):
+                quantity.disabled = not bool(dropdown.value)
+                update_category_options(category)
+                category_rows[category].update()
+                add_buttons[category].update()
+
+            def remove_item_row(e):
+                category_fields[category].remove((dropdown, quantity, row))
+                category_rows[category].controls.remove(row)
+                update_category_options(category)
+                category_rows[category].update()
+                add_buttons[category].update()
 
             dropdown.on_select = update_quantity_state
-            item_fields[category] = (dropdown, quantity)
-            item_rows.append(ft.Row([dropdown, quantity]))
+            row.controls = [
+                dropdown,
+                quantity,
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    tooltip=f"Remove {category} item",
+                    on_click=remove_item_row,
+                ),
+            ]
+            category_fields[category].append((dropdown, quantity, row))
+            category_rows[category].controls.append(row)
+            update_category_options(category)
+            if update_controls:
+                category_rows[category].update()
+                add_buttons[category].update()
 
         def get_item_values():
             return {
-                category: {
-                    "name": dropdown.value,
-                    "quantity": (
-                        int(quantity.value or "0") if dropdown.value else 0
-                    ),
-                }
-                for category, (dropdown, quantity) in item_fields.items()
+                category: [
+                    {
+                        "name": dropdown.value,
+                        "quantity": int(quantity.value or "0"),
+                    }
+                    for dropdown, quantity, _row in category_fields[category]
+                    if dropdown.value
+                ]
+                for category in game_catalogs.ITEM_CATEGORIES
             }
+
+        for category in game_catalogs.ITEM_CATEGORIES:
+            add_buttons[category] = ft.TextButton(
+                content=f"+ Add {category[:-1] if category.endswith('s') else category}",
+                on_click=lambda e, item_category=category: add_item_row(item_category),
+                disabled=not game_catalogs.ITEM_OPTIONS[category],
+            )
+            item_rows.append(
+                ft.Row(
+                    [
+                        ft.Text(category, weight=ft.FontWeight.W_500),
+                        add_buttons[category],
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                )
+            )
+            item_rows.append(category_rows[category])
+
+        for category in game_catalogs.ITEM_CATEGORIES:
+            for existing_item in special_item_entries(existing_items, category):
+                add_item_row(
+                    category,
+                    existing_item,
+                    update_controls=False,
+                )
 
         return item_rows, get_item_values
 
@@ -532,7 +954,7 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
             "magic_resistance": ft.TextField(
-                label="Magic Resistance (max 5)",
+                label="Base Magic Resistance (max 5)",
                 value=str(char.get("magic_resistance", 1)),
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
@@ -542,16 +964,9 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
         }
-        weapons = char.get("weapons", [])
-        weapon_skill_fields = [
-            ft.TextField(
-                label=f"{weapon.get('name', 'Weapon')} Skill",
-                value=str(weapon.get("weapon_skill", 0)),
-                width=180,
-                keyboard_type=ft.KeyboardType.NUMBER,
-            )
-            for weapon in weapons
-        ]
+        weapon_controls, get_weapon_values = self.build_weapon_editor(
+            char.get("weapons", [])
+        )
         existing_special_items = char.get(
             "special_items",
             char.get("hero_items", {}),
@@ -567,14 +982,12 @@ class CharacterManagerApp:
                     for key, field in fields.items()
                     if key != "name"
                 }
-                skill_values = [
-                    int(field.value or "0") for field in weapon_skill_fields
-                ]
+                weapon_values = get_weapon_values()
                 item_values = get_item_values()
                 if any(value < 0 for value in values.values()) or any(
-                    skill < 0 for skill in skill_values
-                ) or any(
-                    item["quantity"] < 0 for item in item_values.values()
+                    item["quantity"] < 0
+                    for entries in item_values.values()
+                    for item in entries
                 ):
                     raise ValueError
                 if values["level"] < 1:
@@ -603,7 +1016,10 @@ class CharacterManagerApp:
                     return
             except ValueError:
                 self.page.snack_bar = ft.SnackBar(
-                    ft.Text("Enter valid non-negative whole numbers for Thief stats.")
+                    ft.Text(
+                        "Enter non-negative whole numbers for Thief stats, "
+                        "Weapon Skill, Combat Bonus, and item quantities."
+                    )
                 )
                 self.page.snack_bar.open = True
                 self.page.update()
@@ -611,10 +1027,7 @@ class CharacterManagerApp:
 
             char.update(values)
             char["name"] = fields["name"].value.strip()
-            char["weapons"] = [
-                {**weapon, "weapon_skill": skill_values[slot]}
-                for slot, weapon in enumerate(weapons)
-            ]
+            char["weapons"] = weapon_values
             char["special_items"] = item_values
             char.pop("hero_items", None)
             self.page.pop_dialog()
@@ -632,10 +1045,9 @@ class CharacterManagerApp:
                         ft.Row([fields["level"], fields["magic_resistance"]]),
                         ft.Row([fields["hp_current"], fields["hp_max"]]),
                         fields["detrap"],
-                        ft.Text("Weapon Skill", weight=ft.FontWeight.BOLD),
-                        *weapon_skill_fields,
+                        *weapon_controls,
                         ft.Divider(),
-                        ft.Text("Rings, Spices, Medallions, and Potions"),
+                        ft.Text("Special Items"),
                         *item_rows,
                     ],
                     scroll=ft.ScrollMode.AUTO,
@@ -672,7 +1084,7 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
             "magic_resistance": ft.TextField(
-                label="Magic Resistance (max 5)",
+                label="Base Magic Resistance (max 5)",
                 value=str(char.get("magic_resistance", 1)),
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
@@ -687,16 +1099,9 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
         }
-        weapons = char.get("weapons", [])
-        weapon_skill_fields = [
-            ft.TextField(
-                label=f"{weapon.get('name', 'Weapon')} Skill",
-                value=str(weapon.get("weapon_skill", 0)),
-                width=180,
-                keyboard_type=ft.KeyboardType.NUMBER,
-            )
-            for weapon in weapons
-        ]
+        weapon_controls, get_weapon_values = self.build_weapon_editor(
+            char.get("weapons", [])
+        )
         existing_special_items = char.get(
             "special_items",
             char.get("hero_items", {}),
@@ -712,12 +1117,12 @@ class CharacterManagerApp:
                     for key, field in fields.items()
                     if key != "name"
                 }
-                skill_values = [int(field.value or "0") for field in weapon_skill_fields]
+                weapon_values = get_weapon_values()
                 item_values = get_item_values()
                 if any(value < 0 for value in values.values()) or any(
-                    value < 0 for value in skill_values
-                ) or any(
-                    item["quantity"] < 0 for item in item_values.values()
+                    item["quantity"] < 0
+                    for entries in item_values.values()
+                    for item in entries
                 ):
                     raise ValueError
                 if values["level"] < 1:
@@ -738,20 +1143,20 @@ class CharacterManagerApp:
                     return
             except ValueError:
                 self.page.snack_bar = ft.SnackBar(
-                    ft.Text("Enter valid non-negative whole numbers for Hero stats.")
+                    ft.Text(
+                        "Enter non-negative whole numbers for Hero stats, "
+                        "Weapon Skill, Combat Bonus, and item quantities."
+                    )
                 )
                 self.page.snack_bar.open = True
                 self.page.update()
                 return
 
-            for field in list(fields.values()) + weapon_skill_fields:
+            for field in fields.values():
                 field.error_text = None
             char.update(values)
             char["name"] = fields["name"].value.strip()
-            char["weapons"] = [
-                {**weapon, "weapon_skill": skill_values[slot]}
-                for slot, weapon in enumerate(weapons)
-            ]
+            char["weapons"] = weapon_values
             char["special_items"] = item_values
             char.pop("hero_items", None)
             self.page.pop_dialog()
@@ -769,10 +1174,9 @@ class CharacterManagerApp:
                         ft.Row([fields["level"], fields["magic_resistance"]]),
                         ft.Row([fields["hp_current"], fields["hp_max"]]),
                         ft.Row([fields["experience_points"], fields["beazants"]]),
-                        ft.Text("Weapon Skill", weight=ft.FontWeight.BOLD),
-                        *weapon_skill_fields,
+                        *weapon_controls,
                         ft.Divider(),
-                        ft.Text("Rings, Spices, Medallions, and Potions"),
+                        ft.Text("Special Items"),
                         *item_rows,
                     ],
                     scroll=ft.ScrollMode.AUTO,
@@ -809,6 +1213,7 @@ class CharacterManagerApp:
             "weapons": [],
         }
         can_have_spells = char.get("class_name") in game_catalogs.SPELLCASTING_CLASSES
+        can_carry_items = char.get("class_name") != "Charmed Monster"
 
         txt_name = ft.TextField(label="Character Name", value=char["name"])
         txt_class = ft.TextField(label="Class / Role", value=char["class_name"])
@@ -817,23 +1222,38 @@ class CharacterManagerApp:
         txt_hp_max = ft.TextField(label="Max HP", value=str(char["hp_max"]), keyboard_type=ft.KeyboardType.NUMBER)
         txt_mag_curr = ft.TextField(label="Current Magic", value=str(char["magic_current"]), keyboard_type=ft.KeyboardType.NUMBER)
         txt_mag_max = ft.TextField(label="Max Magic", value=str(char["magic_max"]), keyboard_type=ft.KeyboardType.NUMBER)
+        txt_magic_resistance = ft.TextField(
+            label="Base Magic Resistance (max 5)",
+            value=str(
+                char.get(
+                    "magic_resistance",
+                    game_catalogs.STARTING_MAGIC_RESISTANCE.get(
+                        char.get("class_name"),
+                        1,
+                    ),
+                )
+            ),
+            keyboard_type=ft.KeyboardType.NUMBER,
+            visible=can_carry_items,
+        )
 
         inv_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=120)
-        wpn_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=120)
         spell_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=120)
+        weapon_controls, get_weapon_values = self.build_weapon_editor(
+            char.get("weapons", [])
+        )
         item_rows, get_item_values = self.build_special_items_editor(
             char.get("special_items", char.get("hero_items", {}))
         )
         special_items_section = ft.Column(
             [
                 ft.Divider(),
-                ft.Text("Rings, Spices, Medallions, and Potions"),
+                ft.Text("Special Items"),
                 *item_rows,
             ],
+            visible=can_carry_items,
         )
-
-        working_inv = list(char["inventory"])
-        working_wpn = list(char["weapons"])
+        working_inv = list(char["inventory"]) if can_carry_items else []
         working_spells = [
             {
                 **spell,
@@ -849,14 +1269,6 @@ class CharacterManagerApp:
                     ft.Row([
                         ft.Text(f"{item['name']} (x{item['quantity']}) - Eff: {item['effects']}", size=12, expand=True),
                         ft.IconButton(icon=ft.Icons.DELETE, icon_size=16, on_click=lambda e, i=idx: remove_item(i))
-                    ])
-                )
-            wpn_list_column.controls.clear()
-            for idx, wpn in enumerate(working_wpn):
-                wpn_list_column.controls.append(
-                    ft.Row([
-                        ft.Text(f"{wpn['name']} | Mod: {wpn['attack_modifier']} | Dmg: {wpn['damage']}", size=12, expand=True),
-                        ft.IconButton(icon=ft.Icons.DELETE, icon_size=16, on_click=lambda e, i=idx: remove_wpn(i))
                     ])
                 )
             if can_have_spells:
@@ -903,10 +1315,6 @@ class CharacterManagerApp:
             working_inv.pop(i)
             render_sublists()
 
-        def remove_wpn(i):
-            working_wpn.pop(i)
-            render_sublists()
-
         def remove_spell(i):
             working_spells.pop(i)
             render_sublists()
@@ -933,22 +1341,36 @@ class CharacterManagerApp:
             )
             self.page.update()
 
-        def open_add_wpn_dlg(e):
-            w_name = ft.TextField(label="Weapon Name")
-            w_mod = ft.TextField(label="Attack Modifier (e.g. +1)")
-            w_dmg = ft.TextField(label="Damage (e.g. 1d8)")
+        inventory_section = ft.Column(
+            [
+                ft.Divider(),
+                ft.Row(
+                    [
+                        ft.Text("Inventory & Effects", weight=ft.FontWeight.BOLD),
+                        ft.TextButton(
+                            content="+ Add",
+                            on_click=open_add_item_dlg,
+                        ),
+                    ]
+                ),
+                inv_list_column,
+            ],
+            visible=can_carry_items,
+        )
 
-            def confirm_wpn(e):
-                working_wpn.append({"name": w_name.value, "attack_modifier": w_mod.value, "damage": w_dmg.value})
-                self.page.dialog = main_dlg
-                render_sublists()
-
-            self.page.dialog = ft.AlertDialog(
-                title=ft.Text("Add Weapon"),
-                content=ft.Column([w_name, w_mod, w_dmg], tight=True),
-                actions=[ft.TextButton(content="Add", on_click=confirm_wpn)]
+        def update_character_class(e):
+            is_charmed_monster = (
+                (txt_class.value or "").strip() == "Charmed Monster"
             )
+            txt_magic_resistance.visible = not is_charmed_monster
+            inventory_section.visible = not is_charmed_monster
+            special_items_section.visible = not is_charmed_monster
+            if is_charmed_monster:
+                working_inv.clear()
+                inv_list_column.controls.clear()
             self.page.update()
+
+        txt_class.on_change = update_character_class
 
         def open_add_spell_dlg(e):
             s_name = ft.TextField(label="Spell Name")
@@ -981,21 +1403,32 @@ class CharacterManagerApp:
 
         def save_character(e):
             try:
+                class_name = (txt_class.value or "").strip() or "Adventurer"
+                is_charmed_monster = class_name == "Charmed Monster"
                 char_data = {
                     "name": txt_name.value or "Unnamed",
-                    "class_name": txt_class.value or "Adventurer",
+                    "class_name": class_name,
                     "strength": int(txt_str.value or 10),
                     "hp_current": int(txt_hp_curr.value or 1),
                     "hp_max": int(txt_hp_max.value or 1),
                     "magic_current": int(txt_mag_curr.value or 0),
                     "magic_max": int(txt_mag_max.value or 0),
-                    "inventory": working_inv,
-                    "weapons": working_wpn,
+                    "inventory": [] if is_charmed_monster else working_inv,
+                    "weapons": get_weapon_values(),
                 }
-                special_items = get_item_values()
-                if any(item["quantity"] < 0 for item in special_items.values()):
-                    raise ValueError
-                char_data["special_items"] = special_items
+                if not is_charmed_monster:
+                    magic_resistance = int(txt_magic_resistance.value or 0)
+                    if not 0 <= magic_resistance <= 5:
+                        raise ValueError
+                    char_data["magic_resistance"] = magic_resistance
+                    special_items = get_item_values()
+                    if any(
+                        item["quantity"] < 0
+                        for entries in special_items.values()
+                        for item in entries
+                    ):
+                        raise ValueError
+                    char_data["special_items"] = special_items
                 if char_data["class_name"] in game_catalogs.SPELLCASTING_CLASSES:
                     char_data["spells"] = working_spells
                 if is_edit:
@@ -1009,7 +1442,8 @@ class CharacterManagerApp:
                 self.page.snack_bar = ft.SnackBar(
                     ft.Text(
                         "Enter valid non-negative whole numbers for character "
-                        "stats and special item quantities."
+                        "stats, Weapon Skill, Combat Bonus, and item quantities. "
+                        "Magic Resistance must be between 0 and 5."
                     )
                 )
                 self.page.snack_bar.open = True
@@ -1019,12 +1453,9 @@ class CharacterManagerApp:
             txt_name,
             ft.Row([txt_class, txt_str]),
             ft.Row([txt_hp_curr, txt_hp_max, txt_mag_curr, txt_mag_max]),
-            ft.Divider(),
-            ft.Row([ft.Text("Weapons", weight=ft.FontWeight.BOLD), ft.TextButton(content="+ Add", on_click=open_add_wpn_dlg)]),
-            wpn_list_column,
-            ft.Divider(),
-            ft.Row([ft.Text("Inventory & Effects", weight=ft.FontWeight.BOLD), ft.TextButton(content="+ Add", on_click=open_add_item_dlg)]),
-            inv_list_column,
+            txt_magic_resistance,
+            *weapon_controls,
+            inventory_section,
             special_items_section,
         ]
         if can_have_spells:
@@ -1080,7 +1511,28 @@ class CharacterManagerApp:
                     if legacy_items is not None:
                         special_items = character.setdefault("special_items", {})
                         for category, item in legacy_items.items():
-                            special_items.setdefault(category, item)
+                            existing = special_items.get(category)
+                            if existing is None:
+                                special_items[category] = item
+                            elif isinstance(existing, list):
+                                existing.append(item)
+                            else:
+                                special_items[category] = [existing, item]
+                    if character.get("class_name") == "Charmed Monster":
+                        character.pop("magic_resistance", None)
+                        character["inventory"] = []
+                        character.pop("special_items", None)
+                    else:
+                        character["special_items"] = normalize_special_items(
+                            character.get("special_items", {})
+                        )
+                        character.setdefault(
+                            "magic_resistance",
+                            game_catalogs.STARTING_MAGIC_RESISTANCE.get(
+                                character.get("class_name"),
+                                1,
+                            ),
+                        )
                     characters.append(character)
                 self.party_data["characters"] = characters
                 campaign_name = self.party_data.get("campaign_name")

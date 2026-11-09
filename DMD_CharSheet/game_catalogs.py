@@ -34,9 +34,40 @@ CLASS_WEAPON_OPTIONS: dict[str, tuple[str, ...] | None] = {
     "Charmed Monster": None,
 }
 
-ITEM_CATEGORIES = ("Rings", "Spices", "Medallions", "Potions")
+ITEM_CATEGORIES = ("Rings", "Spices", "Medallions", "Potions", "Armor")
 ITEM_OPTIONS: dict[str, tuple[str, ...]] = {
-    category: () for category in ITEM_CATEGORIES
+    "Rings": ("Resistance +1", "Resistance +2"),
+    "Spices": (
+        "Mustard",
+        "Sesame",
+        "Spinach",
+        "Red Pepper",
+        "Cannabis",
+        "Cloves",
+    ),
+    "Medallions": (
+        "Neutralize Poison",
+        "Potion Appraisal",
+        "Oratory",
+        "Dexterity",
+    ),
+    "Potions": (
+        "Healing",
+        "Strength",
+        "Charm Person",
+        "Charm Monster",
+    ),
+    "Armor": (),
+}
+RING_RESISTANCE_BONUSES = {"Resistance +1": 1, "Resistance +2": 2}
+
+STARTING_MAGIC_RESISTANCE = {
+    "Hero": 1,
+    "Thief": 1,
+    "Wizard": 2,
+    "Witch Hunter": 2,
+    "Healer": 1,
+    "Peace Keeper": 1,
 }
 
 

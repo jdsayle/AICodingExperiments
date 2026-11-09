@@ -100,6 +100,8 @@ def build_hero_creation_view(
                 "attack_modifier": "+0",
                 "damage": "",
                 "weapon_skill": 1 if slot == skill_slot else 0,
+                "combat_bonus": 0,
+                "equipped": slot == 0,
             }
             for slot, weapon in enumerate(selected_weapons)
         ]
@@ -118,10 +120,7 @@ def build_hero_creation_view(
                 "weapons": weapon_records,
                 "inventory": [],
                 "special_items": {
-                    category: {
-                        "name": None,
-                        "quantity": 0,
-                    }
+                    category: []
                     for category in game_catalogs.ITEM_CATEGORIES
                 },
             }
@@ -265,6 +264,8 @@ def build_thief_creation_view(
                 "attack_modifier": "+0",
                 "damage": "",
                 "weapon_skill": 1 if slot == skill_slot else 0,
+                "combat_bonus": 0,
+                "equipped": slot == 0,
             }
             for slot, weapon in enumerate(selected_weapons)
         ]
@@ -480,40 +481,57 @@ def build_character_form_view(
             "inventory": [],
             "weapons": [],
         }
+        if class_name in game_catalogs.STARTING_MAGIC_RESISTANCE:
+            character["magic_resistance"] = (
+                game_catalogs.STARTING_MAGIC_RESISTANCE[class_name]
+            )
         if class_name in game_catalogs.SPELLCASTING_CLASSES:
             character["spells"] = []
         on_save(character)
+
+    character_details = [
+        ft.Text("Character details", size=18, weight=ft.FontWeight.BOLD),
+        ft.Text(f"Class: {class_name}"),
+    ]
+    if class_name in game_catalogs.STARTING_MAGIC_RESISTANCE:
+        character_details.append(
+            ft.Text(
+                "Starting Magic Resistance: "
+                f"{game_catalogs.STARTING_MAGIC_RESISTANCE[class_name]} / 5"
+            )
+        )
+    character_details.extend(
+        [
+            ft.Text(
+                "Class-specific stats, weapons, and abilities will be added "
+                "as each class is implemented."
+            ),
+            name_field,
+            ft.Row(
+                [
+                    ft.TextButton(
+                        content="Back to Classes",
+                        on_click=lambda e: on_back(),
+                    ),
+                    ft.TextButton(
+                        content="Cancel",
+                        on_click=lambda e: on_cancel(),
+                    ),
+                    ft.Button(
+                        content="Create Character",
+                        on_click=save_character,
+                    ),
+                ]
+            ),
+        ]
+    )
 
     return ft.View(
         route=route_for_class(class_name),
         appbar=ft.AppBar(title=ft.Text(f"Create {class_name}")),
         controls=[
             ft.Column(
-                [
-                    ft.Text("Character details", size=18, weight=ft.FontWeight.BOLD),
-                    ft.Text(f"Class: {class_name}"),
-                    ft.Text(
-                        "Class-specific stats, weapons, and abilities will be added "
-                        "as each class is implemented."
-                    ),
-                    name_field,
-                    ft.Row(
-                        [
-                            ft.TextButton(
-                                content="Back to Classes",
-                                on_click=lambda e: on_back(),
-                            ),
-                            ft.TextButton(
-                                content="Cancel",
-                                on_click=lambda e: on_cancel(),
-                            ),
-                            ft.Button(
-                                content="Create Character",
-                                on_click=save_character,
-                            ),
-                        ]
-                    ),
-                ],
+                character_details,
                 spacing=16,
                 width=600,
             )
