@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from app.models.character import Character, Weapon, Item
-from app.models.enums import ClassType
+from app.models.enums import ClassType, WeaponType
 from app.services.character_manager import CharacterManager
 from views.widgets.weapon_selector import WeaponSelectorWidget
 from views.widgets.spell_selector import SpellSelectorWidget
@@ -23,36 +23,30 @@ class Step1IdentityAndClass(QWizardPage):
 
         layout = QVBoxLayout(self)
 
-        # Name Input
         layout.addWidget(QLabel("Character Name:"))
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Please enter a character name")
         self.name_input.textChanged.connect(self.completeChanged)
         layout.addWidget(self.name_input)
 
-        # Duplicate Name / Validation Error Label
         self.error_label = QLabel()
         self.error_label.setStyleSheet("color: #ff6b6b; font-weight: bold;")
         layout.addWidget(self.error_label)
 
-        # Class Selection
         layout.addWidget(QLabel("Character Class:"))
         self.class_combo = QComboBox()
         for ct in ClassType:
             self.class_combo.addItem(ct.name.replace('_', ' ').title(), ct)
         layout.addWidget(self.class_combo)
 
-        # Register fields for QWizard flow
         self.registerField("character_name*", self.name_input)
 
     def isComplete(self) -> bool:
-        """Enforces that the name is non-empty and unique in the repository."""
         name = self.name_input.text().strip()
         if not name:
             self.error_label.setText("")
             return False
 
-        # Check if character name already exists
         if self.manager.get_character(name):
             self.error_label.setText("Name already claimed")
             return False
@@ -74,15 +68,12 @@ class Step2Capabilities(QWizardPage):
 
         self.layout = QVBoxLayout(self)
 
-        # Stat Summary Label
         self.stats_label = QLabel()
         self.layout.addWidget(self.stats_label)
 
-        # Weapon Selector Widget
         self.weapon_selector = WeaponSelectorWidget()
         self.layout.addWidget(self.weapon_selector)
 
-        # Spell Selectors (for Magic Users)
         self.spell_selector_1 = SpellSelectorWidget()
         self.spell_selector_2 = SpellSelectorWidget()
         self.spell_selector_1.setVisible(False)
@@ -90,16 +81,14 @@ class Step2Capabilities(QWizardPage):
         
         self.layout.addWidget(QLabel("Primary Spell:"))
         self.layout.addWidget(self.spell_selector_1)
-        self.layout.addWidget(QLabel("Secondary Spell (Bonus Option C):"))
+        self.layout.addWidget(QLabel("Secondary Spell (Bonus Option D):"))
         self.layout.addWidget(self.spell_selector_2)
 
-        # Starting Bonus Widget
         self.bonus_widget = StartingBonusWidget()
         self.bonus_widget.bonus_changed.connect(self._on_bonus_changed)
         self.layout.addWidget(self.bonus_widget)
 
     def initializePage(self) -> None:
-        """Dynamically build widgets based on Step 1 class selection."""
         wizard = self.wizard()
         class_type = wizard.step1.get_selected_class()
 
@@ -119,10 +108,17 @@ class Step2Capabilities(QWizardPage):
         )
         self.stats_label.setText(stats_text)
 
-        # Configure Weapon Selector
-        self.weapon_selector.set_class(class_type)
+        # Configure Weapon Selector / Rules
+        if class_type == ClassType.PEACE_MAKER:
+            self.weapon_selector.setVisible(False)
+        elif class_type == ClassType.HEALER:
+            self.weapon_selector.setVisible(True)
+            self.weapon_selector.set_class(class_type)
+            # Healer equips ONE starting dagger
+        else:
+            self.weapon_selector.setVisible(True)
+            self.weapon_selector.set_class(class_type)
 
-        # Configure Spells & Bonuses
         is_magic = class_type in {
             ClassType.WIZARD, ClassType.WITCH_HUNTER, 
             ClassType.HEALER, ClassType.PEACE_MAKER
@@ -132,7 +128,7 @@ class Step2Capabilities(QWizardPage):
             self.spell_selector_1.set_class(class_type)
             self.spell_selector_1.setVisible(True)
             self.spell_selector_2.set_class(class_type)
-            self.spell_selector_2.setVisible(False)  # Hidden unless bonus C is chosen
+            self.spell_selector_2.setVisible(False)  # Hidden unless bonus D is chosen
         else:
             self.spell_selector_1.setVisible(False)
             self.spell_selector_2.setVisible(False)
@@ -146,7 +142,8 @@ class Step2Capabilities(QWizardPage):
             ClassType.WIZARD, ClassType.WITCH_HUNTER, 
             ClassType.HEALER, ClassType.PEACE_MAKER
         }
-        if is_magic and bonus_key == "c":
+        # If magic user and option d (or option c for Peace Maker if it grants second spell)
+        if is_magic and (bonus_key == "d" or (class_type == ClassType.PEACE_MAKER and bonus_key == "c")):
             self.spell_selector_2.setVisible(True)
         else:
             self.spell_selector_2.setVisible(False)
@@ -159,7 +156,7 @@ class CharacterCreationWizard(QWizard):
         super().__init__(parent)
         self.manager = manager
         self.setWindowTitle("DeathMaze Deluxe - Character Creation")
-        self.resize(600, 500)
+        self.resize(600, 550)
 
         self.step1 = Step1IdentityAndClass(manager, self)
         self.step2 = Step2Capabilities(self)
@@ -171,7 +168,6 @@ class CharacterCreationWizard(QWizard):
         name = self.step1.field("character_name").strip()
         class_type = self.step1.get_selected_class()
 
-        # Final safety check against race conditions or direct inputs
         if self.manager.get_character(name):
             QMessageBox.warning(
                 self, 
@@ -193,28 +189,55 @@ class CharacterCreationWizard(QWizard):
         char = Character(
             name=name,
             class_type=class_type,
+            level=1,
+            experience=0,
             max_hp=base_stats["hp"],
             current_hp=base_stats["hp"],
             magic_resistance=base_stats["mr"],
             detrap_skill=base_stats["detrap"],
-            created_date=datetime.now().isoformat()
+            created_date=datetime.now().strftime("%Y-%m-%d")
         )
 
-        for w_type in self.step2.weapon_selector.get_selected_weapons():
-            char.weapons.append(Weapon(name=w_type))
+        # Weapons configuration
+        if class_type == ClassType.PEACE_MAKER:
+            pass  # No weapons equipped
+        elif class_type == ClassType.HEALER:
+            char.weapons.append(Weapon(name=WeaponType.DAGGER))
+            char.equipped_weapon_index = 0
+        elif class_type == ClassType.WIZARD:
+            for w_type in self.step2.weapon_selector.get_selected_weapons()[:2]:
+                char.weapons.append(Weapon(name=w_type))
+            if char.weapons:
+                char.equipped_weapon_index = 0
+        else:
+            for w_type in self.step2.weapon_selector.get_selected_weapons():
+                char.weapons.append(Weapon(name=w_type))
+            if char.weapons:
+                char.equipped_weapon_index = 0
 
+        # Starting Bonus application
         bonus = self.step2.bonus_widget.get_selected_bonus()
         if bonus == "a":
             char.max_hp += 1
             char.current_hp += 1
-        elif bonus == "b" and char.weapons:
-            char.weapons[0].skill_bonus += 1
+        elif bonus == "b":
+            if class_type == ClassType.PEACE_MAKER:
+                char.magic_resistance += 1
+            elif char.weapons:
+                char.weapons[0].skill_bonus += 1
         elif bonus == "c":
-            if class_type in {ClassType.HERO, ClassType.PEACE_MAKER}:
+            if class_type in {ClassType.HERO, ClassType.WITCH_HUNTER, ClassType.HEALER}:
                 char.magic_resistance += 1
             elif class_type == ClassType.THIEF:
                 char.detrap_skill += 1
-            elif char.is_magic_user:
+            elif class_type in {ClassType.WIZARD}:
+                char.magic_resistance += 1
+            elif class_type == ClassType.PEACE_MAKER:
+                spell2 = self.step2.spell_selector_2.get_selected_spell()
+                if spell2 and spell2 not in char.spells:
+                    char.spells.append(spell2)
+        elif bonus == "d":
+            if char.is_magic_user:
                 spell2 = self.step2.spell_selector_2.get_selected_spell()
                 if spell2 and spell2 not in char.spells:
                     char.spells.append(spell2)

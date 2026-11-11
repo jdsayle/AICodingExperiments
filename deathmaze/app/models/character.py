@@ -52,6 +52,7 @@ class Character:
     name: str
     class_type: ClassType
     level: int = 1
+    experience: int = 0
     created_date: str = ""
     death_date: Optional[str] = None
     
@@ -90,4 +91,3 @@ class Character:
             ClassType.WIZARD, ClassType.WITCH_HUNTER, 
             ClassType.HEALER, ClassType.PEACE_MAKER
         }
-

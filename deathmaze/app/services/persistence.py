@@ -12,6 +12,13 @@ class CharacterSerializer:
     def to_dict(character: Character) -> Dict[str, Any]:
         data = asdict(character)
         data["class_type"] = character.class_type.name
+        
+        # Ensure created_date and death_date are cleanly saved as YYYY-MM-DD
+        if data.get("created_date"):
+            data["created_date"] = data["created_date"][:10]
+        if data.get("death_date"):
+            data["death_date"] = data["death_date"][:10]
+
         for weapon in data["weapons"]:
             weapon["name"] = WeaponType(weapon["name"]).name if isinstance(weapon["name"], WeaponType) else weapon["name"]
         for item in data["items"]:
@@ -55,12 +62,19 @@ class CharacterSerializer:
             for s in data.get("spells", [])
         ]
 
+        raw_created = data.get("created_date", "")
+        formatted_created = raw_created[:10] if raw_created else ""
+
+        raw_death = data.get("death_date")
+        formatted_death = raw_death[:10] if raw_death else None
+
         return Character(
             name=data["name"],
             class_type=ClassType[data["class_type"]],
             level=data.get("level", 1),
-            created_date=data.get("created_date", ""),
-            death_date=data.get("death_date"),
+            experience=data.get("experience", 0),
+            created_date=formatted_created,
+            death_date=formatted_death,
             max_hp=data.get("max_hp", 10),
             current_hp=data.get("current_hp", 10),
             magic_wounds=data.get("magic_wounds", 0),
@@ -75,7 +89,6 @@ class CharacterSerializer:
             is_alive=data.get("is_alive", True),
             is_retired=data.get("is_retired", False),
             is_in_party=data.get("is_in_party", False),
-            # --- RESTORED FIELDS FOR TACTICAL GRID PERSISTENCE ---
             is_npc=data.get("is_npc", False),
             combat_row=data.get("combat_row", 0),
             combat_col=data.get("combat_col", 0)

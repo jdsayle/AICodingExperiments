@@ -215,7 +215,10 @@ class MainWindow(QMainWindow):
         self.refresh_character_lists()
 
         # --- STARTUP DISPLAY MODE ---
-        self.showFullScreen()
+        self.showNormal() # <--- Windowed view for app testing. FullScreen used for PROD.
+
+        ### FULLSCREEN TOGGLE UNCOMMENT TO START IN FULLSCREEN W/ ESC to EXIT TO WINDOWED APP
+        # self.showFullScreen()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Toggles out of fullscreen mode when Escape is pressed."""

@@ -1,37 +1,38 @@
 {
-  "name": "test3",
+  "name": "test12",
   "class_type": "THIEF",
   "level": 1,
-  "created_date": "2026-11-10T22:01:08.152277",
+  "experience": 0,
+  "created_date": "2026-11-11",
   "death_date": null,
-  "max_hp": 7,
-  "current_hp": 7,
+  "max_hp": 6,
+  "current_hp": 6,
   "magic_wounds": 0,
   "magic_resistance": 1,
-  "detrap_skill": 1,
+  "detrap_skill": 2,
   "weapons": [
-    {
-      "name": "SWORD",
-      "is_magical": false,
-      "combat_bonus": 0,
-      "skill_bonus": 0
-    },
     {
       "name": "AXE",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
+    },
+    {
+      "name": "DAGGER",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
     }
   ],
-  "equipped_weapon_index": null,
+  "equipped_weapon_index": 0,
   "items": [],
   "spells": [],
   "bezants": 0,
   "gems": 0,
   "is_alive": true,
   "is_retired": false,
-  "is_in_party": false,
+  "is_in_party": true,
   "is_npc": false,
   "combat_row": 0,
-  "combat_col": 1
+  "combat_col": 0
 }

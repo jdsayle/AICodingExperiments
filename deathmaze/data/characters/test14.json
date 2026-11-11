@@ -1,13 +1,14 @@
 {
-  "name": "test",
+  "name": "test14",
   "class_type": "WITCH_HUNTER",
   "level": 1,
-  "created_date": "2026-11-10T22:00:54.468503",
+  "experience": 0,
+  "created_date": "2026-11-11",
   "death_date": null,
   "max_hp": 7,
   "current_hp": 7,
   "magic_wounds": 0,
-  "magic_resistance": 2,
+  "magic_resistance": 3,
   "detrap_skill": 0,
   "weapons": [
     {
@@ -17,24 +18,15 @@
       "skill_bonus": 0
     },
     {
-      "name": "BOW_AND_ARROWS",
+      "name": "DAGGER",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
     }
   ],
-  "equipped_weapon_index": null,
+  "equipped_weapon_index": 0,
   "items": [],
   "spells": [
-    {
-      "name": "Protection From Undead",
-      "cost": 1,
-      "is_combat_spell": true,
-      "description": "Undead that fail resist cannot attack Witch Hunter.",
-      "allowed_classes": [
-        "WITCH_HUNTER"
-      ]
-    },
     {
       "name": "Righteous Fury",
       "cost": 2,
@@ -51,6 +43,6 @@
   "is_retired": false,
   "is_in_party": true,
   "is_npc": false,
-  "combat_row": 1,
+  "combat_row": 0,
   "combat_col": 0
 }

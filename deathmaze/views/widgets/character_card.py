@@ -37,6 +37,16 @@ class CharacterCardWidget(QWidget):
         group_layout.setContentsMargins(6, 6, 6, 6)
         group_layout.setSpacing(3)
 
+        # Level & XP
+        info_layout = QHBoxLayout()
+        info_layout.setContentsMargins(0, 0, 0, 0)
+        info_layout.addWidget(QLabel(f"<b>Level:</b> {character.level}"))
+        info_layout.addWidget(QLabel(f"<b>XP:</b> {character.experience}"))
+        info_layout.addWidget(QLabel(f"<b>MR:</b> {character.magic_resistance}"))
+        if character.detrap_skill > 0:
+            info_layout.addWidget(QLabel(f"<b>Detrap:</b> {character.detrap_skill}"))
+        group_layout.addLayout(info_layout)
+
         # HP Bar
         hp_layout = QHBoxLayout()
         hp_layout.setContentsMargins(0, 0, 0, 0)
@@ -48,19 +58,25 @@ class CharacterCardWidget(QWidget):
         hp_layout.addWidget(self.hp_bar)
         group_layout.addLayout(hp_layout)
 
-        # Equipped Weapon
-        weapon_name = "None"
+        # Equipped Weapon & Skill/Combat Bonus
+        weapon_display = "None"
         if character.weapons and character.equipped_weapon_index is not None:
             if 0 <= character.equipped_weapon_index < len(character.weapons):
-                weapon_name = character.weapons[character.equipped_weapon_index].name.name.replace('_', ' ').title()
+                w = character.weapons[character.equipped_weapon_index]
+                w_name = w.name.name.replace('_', ' ').title()
+                bonuses = []
+                if w.combat_bonus != 0:
+                    bonuses.append(f"C.Bonus: +{w.combat_bonus}")
+                if w.skill_bonus != 0:
+                    bonuses.append(f"Skill: +{w.skill_bonus}")
+                bonus_str = f" ({', '.join(bonuses)})" if bonuses else ""
+                weapon_display = f"{w_name}{bonus_str}"
         elif character.weapons:
-            weapon_name = character.weapons[0].name.name.replace('_', ' ').title()
-        group_layout.addWidget(QLabel(f"<b>Equipped:</b> {weapon_name}"))
+            w = character.weapons[0]
+            weapon_display = w.name.name.replace('_', ' ').title()
+        group_layout.addWidget(QLabel(f"<b>Equipped:</b> {weapon_display}"))
 
-        # Quick Inventory / Spells summary (compacted)
-        top_items = ", ".join(i.name for i in character.items[:2]) or "None"
-        group_layout.addWidget(QLabel(f"<b>Items:</b> {top_items}"))
-
+        # Known Spells summary
         top_spells = ", ".join(s.name for s in character.spells[:2]) or "None"
         group_layout.addWidget(QLabel(f"<b>Spells:</b> {top_spells}"))
 
