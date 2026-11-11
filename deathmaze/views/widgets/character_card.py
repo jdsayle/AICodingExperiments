@@ -1,11 +1,10 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QProgressBar, QGroupBox, QApplication, QSizePolicy
+    QProgressBar, QGroupBox, QApplication, QSizePolicy, QGraphicsOpacityEffect
 )
 from PySide6.QtCore import Signal, QSize, QMimeData, Qt, QPoint
 from PySide6.QtGui import QDrag
 from app.models.character import Character
-
 
 
 class CharacterCardWidget(QWidget):
@@ -17,12 +16,17 @@ class CharacterCardWidget(QWidget):
         self.character = character
         self._drag_start_position = QPoint()
 
+        # Strict fixed sizing (375x260) to prevent layout shrinkage
         self.setFixedSize(QSize(375, 260))
         self.setMinimumSize(375, 260)
         self.setMaximumSize(375, 260)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.setAcceptDrops(False)
-        self.setAcceptDrops(False)
+
+        # Setup opacity effect for 50% transparency cue during drag
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(self.opacity_effect)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -90,4 +94,11 @@ class CharacterCardWidget(QWidget):
         drag.setPixmap(pixmap)
         drag.setHotSpot(event.position().toPoint())
 
+        # Set original card to 50% opacity while dragging
+        self.opacity_effect.setOpacity(0.5)
+
+        # Execute drag (blocks until dropped or cancelled)
         drag.exec(Qt.MoveAction)
+
+        # Immediately restore original card to 100% opacity when drag concludes
+        self.opacity_effect.setOpacity(1.0)
