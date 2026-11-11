@@ -1,0 +1,34 @@
+[C:\Users\jdmusick\sandbox\deathmaze]
+
+deathmaze/
+├── main.py
+├── app/
+│   ├── __init__.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── enums.py
+│   │   ├── spells.py
+│   │   └── character.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── rules_engine.py
+│   │   ├── persistence.py
+│   │   ├── repository.py
+│   │   ├── character_manager.py
+│   │   └── theme_manager.py
+│   └── views/
+│       ├── __init__.py
+│       ├── widgets/
+│       │   ├── __init__.py
+│       │   ├── weapon_selector.py
+│       │   ├── spell_selector.py
+│       │   ├── starting_bonus.py
+│       │   └── character_card.py
+│       ├── character_wizard.py
+│       └── main_window.py
+└── tests/
+    ├── __init__.py
+    ├── test_rules_engine.py
+    ├── test_repository.py
+    ├── test_character_wizard.py
+    └── test_main_window.py

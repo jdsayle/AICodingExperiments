@@ -1,0 +1,33 @@
+{
+  "name": "test3",
+  "class_type": "HERO",
+  "level": 1,
+  "created_date": "2026-11-10T19:15:51.158658",
+  "death_date": null,
+  "max_hp": 8,
+  "current_hp": 8,
+  "magic_wounds": 0,
+  "magic_resistance": 2,
+  "detrap_skill": 0,
+  "weapons": [
+    {
+      "name": "AXE",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
+    },
+    {
+      "name": "DAGGER",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
+    }
+  ],
+  "equipped_weapon_index": null,
+  "items": [],
+  "spells": [],
+  "bezants": 0,
+  "gems": 0,
+  "is_alive": true,
+  "is_retired": false
+}

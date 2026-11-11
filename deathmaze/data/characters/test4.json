@@ -1,0 +1,43 @@
+{
+  "name": "test4",
+  "class_type": "WIZARD",
+  "level": 1,
+  "created_date": "2026-11-10T19:16:27.378523",
+  "death_date": null,
+  "max_hp": 5,
+  "current_hp": 5,
+  "magic_wounds": 0,
+  "magic_resistance": 2,
+  "detrap_skill": 0,
+  "weapons": [
+    {
+      "name": "DAGGER",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
+    },
+    {
+      "name": "THROWING_DAGGER",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
+    }
+  ],
+  "equipped_weapon_index": null,
+  "items": [],
+  "spells": [
+    {
+      "name": "Sleep",
+      "cost": 2,
+      "is_combat_spell": true,
+      "description": "Monster falls asleep and removed from marching order if fail resist.",
+      "allowed_classes": [
+        "WIZARD"
+      ]
+    }
+  ],
+  "bezants": 0,
+  "gems": 0,
+  "is_alive": true,
+  "is_retired": false
+}

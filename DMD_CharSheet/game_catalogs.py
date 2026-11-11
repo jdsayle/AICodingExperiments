@@ -22,12 +22,40 @@ SPELLCASTING_CLASSES = (
     "Peace Keeper",
     "Magic-User",
 )
+SPELL_CATALOG: dict[str, tuple[tuple[str, int], ...]] = {
+    "Combat Spells": (
+        ("Blast", 1),
+        ("Charm", 3),
+        ("Explosion", 1),
+        ("Lightning", 2),
+        ("Sleep", 2),
+    ),
+    "Non-Combat Spells": (
+        ("Heal", 2),
+        ("Lock", 1),
+        ("Mage Armor", 1),
+        ("Neutralize Poison", 1),
+        ("Stone-To-Flesh", 3),
+        ("Strength", 2),
+    ),
+    "Negotiation Spells": (("Oratory", 1),),
+}
+SPELL_COSTS = {
+    spell_name: cost
+    for spell_entries in SPELL_CATALOG.values()
+    for spell_name, cost in spell_entries
+}
+SPELL_CATEGORIES = {
+    spell_name: category
+    for category, spell_entries in SPELL_CATALOG.items()
+    for spell_name, _cost in spell_entries
+}
 
 # None means that class's weapon restrictions have not been defined yet.
 CLASS_WEAPON_OPTIONS: dict[str, tuple[str, ...] | None] = {
     "Hero": WEAPONS,
     "Thief": WEAPONS,
-    "Wizard": None,
+    "Wizard": ("Dagger", "Throwing Dagger"),
     "Witch Hunter": None,
     "Healer": None,
     "Peace Keeper": None,

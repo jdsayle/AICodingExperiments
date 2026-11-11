@@ -63,6 +63,29 @@ def effective_magic_resistance(character):
     return min(5, int(base_resistance) + ring_bonus)
 
 
+def effective_max_hit_points(character):
+    base_maximum = int(character.get("hp_max", 0))
+    magic_damage = max(0, int(character.get("magic_damage", 0)))
+    return max(0, base_maximum - magic_damage)
+
+
+def hit_point_display(character):
+    magic_damage = max(0, int(character.get("magic_damage", 0)))
+    return ft.Row(
+        [
+            ft.Text(
+                f"HP: {character.get('hp_current', 0)} /",
+                weight=ft.FontWeight.W_500,
+            ),
+            ft.Text(
+                str(effective_max_hit_points(character)),
+                color=ft.Colors.RED_400 if magic_damage else None,
+            ),
+        ],
+        spacing=0,
+    )
+
+
 def equipped_weapon(character):
     return next(
         (weapon for weapon in character.get("weapons", []) if weapon.get("equipped")),
@@ -155,10 +178,19 @@ class CharacterManagerApp:
                 self.theme_toggle_switch,
             ], alignment=ft.MainAxisAlignment.END)
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        footer = ft.Row(
+            [
+                ft.Button(
+                    content="Leaving DeathMaze",
+                    on_click=self.leave_deathmaze,
+                )
+            ],
+            alignment=ft.MainAxisAlignment.END,
+        )
 
         self.home_view = ft.View(
             route="/",
-            controls=[toolbar, ft.Divider(), self.party_grid],
+            controls=[toolbar, ft.Divider(), self.party_grid, footer],
         )
         self.page.on_route_change = self.handle_route_change
         self.page.on_view_pop = self.handle_view_pop
@@ -205,9 +237,108 @@ class CharacterManagerApp:
             self.page.navigate("/")
 
     def add_created_character(self, character):
+        character.setdefault("experience_points", 0)
+        character.setdefault("beazants", 0)
         self.party_data["characters"].append(character)
         self.refresh_grid()
         self.page.navigate("/")
+
+    def leave_deathmaze(self, e=None):
+        recovered_count = 0
+        for character in self.party_data.get("characters", []):
+            if int(character.get("hp_current", 0)) <= 0:
+                continue
+            character["hp_current"] = int(character.get("hp_max", 0))
+            character["magic_damage"] = 0
+            if character.get("class_name") == "Wizard":
+                for spell in character.get("spells", []):
+                    spell["max_uses"] = max(
+                        1,
+                        int(
+                            spell.get(
+                                "max_uses",
+                                spell.get("uses_remaining", 1),
+                            )
+                        ),
+                    )
+                    spell["uses_remaining"] = spell["max_uses"]
+            recovered_count += 1
+
+        self.refresh_grid()
+        self.page.snack_bar = ft.SnackBar(
+            ft.Text(
+                f"Restored health and spell uses for {recovered_count} "
+                "living character(s)."
+            )
+        )
+        self.page.snack_bar.open = True
+        self.page.update()
+
+    def cast_spell(
+        self,
+        char_index,
+        spell_index,
+        current_hp=None,
+        base_max_hp=None,
+    ):
+        character = self.party_data["characters"][char_index]
+        if character.get("class_name") != "Wizard":
+            return False
+        spell = character.get("spells", [])[spell_index]
+        if int(spell.get("uses_remaining", 1)) <= 0:
+            return False
+
+        cost = spell.get("cost")
+        if not isinstance(cost, int) or cost < 0:
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text(f"The cost for {spell.get('name', 'this spell')} is not set.")
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+            return False
+
+        current_hp = int(
+            character.get("hp_current", 0)
+            if current_hp is None
+            else current_hp
+        )
+        base_max_hp = int(
+            character.get("hp_max", 0)
+            if base_max_hp is None
+            else base_max_hp
+        )
+        if current_hp > max(
+            0,
+            base_max_hp - max(0, int(character.get("magic_damage", 0))),
+        ):
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text("Current HP exceeds effective Maximum HP.")
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+            return False
+        if current_hp - cost <= 0:
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text(
+                    f"Cannot cast {spell.get('name', 'this spell')}: paying "
+                    "the cost would reduce HP to 0 or less."
+                )
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+            return False
+
+        spell["uses_remaining"] = max(
+            0,
+            int(spell.get("uses_remaining", 1)) - 1,
+        )
+        character["hp_current"] = current_hp - cost
+        character["hp_max"] = base_max_hp
+        character["magic_damage"] = (
+            max(0, int(character.get("magic_damage", 0))) + cost
+        )
+        self.refresh_grid()
+        return True
 
     def toggle_theme(self, e):
         is_dark = e.control.value
@@ -262,7 +393,7 @@ class CharacterManagerApp:
                 ) or "None"
                 character_stats = ft.Row(
                     [
-                        ft.Text(f"HP: {char['hp_current']} / {char['hp_max']}", weight=ft.FontWeight.W_500),
+                        hit_point_display(char),
                         ft.Text(f"MR: {magic_resistance} / 5"),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -280,10 +411,7 @@ class CharacterManagerApp:
                 ) or "None"
                 character_stats = ft.Row(
                     [
-                        ft.Text(
-                            f"HP: {char['hp_current']} / {char['hp_max']}",
-                            weight=ft.FontWeight.W_500,
-                        ),
+                        hit_point_display(char),
                         ft.Text(f"MR: {magic_resistance} / 5"),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -336,9 +464,7 @@ class CharacterManagerApp:
             else:
                 character_stats = ft.Row(
                     [
-                        ft.Text(f"HP: {char['hp_current']} / {char['hp_max']}", weight=ft.FontWeight.W_500),
-                        ft.Text(f"STR: {char['strength']}"),
-                        ft.Text(f"MAG: {char['magic_current']}/{char['magic_max']}" if char['magic_max'] > 0 else "MAG: N/A"),
+                        hit_point_display(char),
                         *(
                             [ft.Text(f"MR: {magic_resistance} / 5")]
                             if magic_resistance is not None
@@ -438,8 +564,14 @@ class CharacterManagerApp:
         spellcaster = class_name in game_catalogs.SPELLCASTING_CLASSES
 
         stat_lines = [
-            f"Health: {char.get('hp_current', 0)} / {char.get('hp_max', 0)}"
+            "Health: "
+            f"{char.get('hp_current', 0)} / {effective_max_hit_points(char)}"
         ]
+        if int(char.get("magic_damage", 0)) > 0:
+            stat_lines.append(
+                f"Magic Damage: {char['magic_damage']} "
+                f"(Base maximum HP: {char.get('hp_max', 0)})"
+            )
         if "strength" in char:
             stat_lines.append(f"Strength: {char['strength']}")
         if "magic_current" in char or "magic_max" in char:
@@ -545,9 +677,24 @@ class CharacterManagerApp:
                     ft.Text("Spells", weight=ft.FontWeight.BOLD),
                     *[
                         ft.Text(
-                            f"{spell.get('name', 'Unnamed spell')} "
-                            f"({max(0, int(spell.get('uses_remaining', 1)))} uses) "
-                            f"- {spell.get('description', '')}",
+                            " | ".join(
+                                part
+                                for part in (
+                                    str(spell.get("category", "")),
+                                    str(spell.get("name", "Unnamed spell")),
+                                    (
+                                        f"Cost: {spell['cost']}"
+                                        if "cost" in spell
+                                        else ""
+                                    ),
+                                    (
+                                        f"Uses: "
+                                        f"{max(0, int(spell.get('uses_remaining', 1)))}"
+                                    ),
+                                    str(spell.get("description", "")),
+                                )
+                                if part
+                            ),
                             color=(
                                 ft.Colors.GREY_500
                                 if int(spell.get("uses_remaining", 1)) <= 0
@@ -581,6 +728,23 @@ class CharacterManagerApp:
         char = self.party_data["characters"][char_index]
         char["detrap"] = max(0, min(5, char.get("detrap", 1) + amount))
         self.refresh_grid()
+
+    def build_resource_fields(self, character):
+        fields = {
+            "experience_points": ft.TextField(
+                label="Experience Points",
+                value=str(character.get("experience_points", 0)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+            ),
+            "beazants": ft.TextField(
+                label="Beazants",
+                value=str(character.get("beazants", 0)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+            ),
+        }
+        return fields, ft.Row(
+            [fields["experience_points"], fields["beazants"]]
+        )
 
     def build_weapon_editor(self, existing_weapons):
         weapons = [
@@ -949,7 +1113,7 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
             "hp_max": ft.TextField(
-                label="Maximum Health",
+                label="Base Maximum Health",
                 value=str(char.get("hp_max", 6)),
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
@@ -964,6 +1128,8 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
         }
+        resource_fields, resource_fields_row = self.build_resource_fields(char)
+        fields.update(resource_fields)
         weapon_controls, get_weapon_values = self.build_weapon_editor(
             char.get("weapons", [])
         )
@@ -1004,9 +1170,12 @@ class CharacterManagerApp:
                     )
                     fields["magic_resistance"].update()
                     return
-                if values["hp_current"] > values["hp_max"]:
+                if values["hp_current"] > max(
+                    0,
+                    values["hp_max"] - int(char.get("magic_damage", 0)),
+                ):
                     fields["hp_current"].error_text = (
-                        "Current Health cannot exceed Maximum Health."
+                        "Current Health cannot exceed effective Maximum Health."
                     )
                     fields["hp_current"].update()
                     return
@@ -1037,13 +1206,23 @@ class CharacterManagerApp:
             modal=True,
             title=ft.Text("Manage Thief Sheet"),
             content=ft.Container(
-                width=600,
+                width=680,
                 height=500,
                 content=ft.Column(
                     [
                         fields["name"],
                         ft.Row([fields["level"], fields["magic_resistance"]]),
                         ft.Row([fields["hp_current"], fields["hp_max"]]),
+                        ft.Text(
+                            f"Magic Damage (heals on exit): "
+                            f"{max(0, int(char.get('magic_damage', 0)))}",
+                            color=(
+                                ft.Colors.RED_400
+                                if char.get("magic_damage", 0)
+                                else None
+                            ),
+                        ),
+                        resource_fields_row,
                         fields["detrap"],
                         *weapon_controls,
                         ft.Divider(),
@@ -1079,7 +1258,7 @@ class CharacterManagerApp:
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
             "hp_max": ft.TextField(
-                label="Maximum Health",
+                label="Base Maximum Health",
                 value=str(char.get("hp_max", 8)),
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
@@ -1088,17 +1267,9 @@ class CharacterManagerApp:
                 value=str(char.get("magic_resistance", 1)),
                 keyboard_type=ft.KeyboardType.NUMBER,
             ),
-            "experience_points": ft.TextField(
-                label="Experience Points",
-                value=str(char.get("experience_points", 0)),
-                keyboard_type=ft.KeyboardType.NUMBER,
-            ),
-            "beazants": ft.TextField(
-                label="Beazants",
-                value=str(char.get("beazants", 0)),
-                keyboard_type=ft.KeyboardType.NUMBER,
-            ),
         }
+        resource_fields, resource_fields_row = self.build_resource_fields(char)
+        fields.update(resource_fields)
         weapon_controls, get_weapon_values = self.build_weapon_editor(
             char.get("weapons", [])
         )
@@ -1133,8 +1304,13 @@ class CharacterManagerApp:
                     fields["magic_resistance"].error_text = "Magic Resistance cannot exceed 5."
                     fields["magic_resistance"].update()
                     return
-                if values["hp_current"] > values["hp_max"]:
-                    fields["hp_current"].error_text = "Current Health cannot exceed Maximum Health."
+                if values["hp_current"] > max(
+                    0,
+                    values["hp_max"] - int(char.get("magic_damage", 0)),
+                ):
+                    fields["hp_current"].error_text = (
+                        "Current Health cannot exceed effective Maximum Health."
+                    )
                     fields["hp_current"].update()
                     return
                 if not (fields["name"].value or "").strip():
@@ -1173,7 +1349,16 @@ class CharacterManagerApp:
                         fields["name"],
                         ft.Row([fields["level"], fields["magic_resistance"]]),
                         ft.Row([fields["hp_current"], fields["hp_max"]]),
-                        ft.Row([fields["experience_points"], fields["beazants"]]),
+                        ft.Text(
+                            f"Magic Damage (heals on exit): "
+                            f"{max(0, int(char.get('magic_damage', 0)))}",
+                            color=(
+                                ft.Colors.RED_400
+                                if char.get("magic_damage", 0)
+                                else None
+                            ),
+                        ),
+                        resource_fields_row,
                         *weapon_controls,
                         ft.Divider(),
                         ft.Text("Special Items"),
@@ -1190,6 +1375,379 @@ class CharacterManagerApp:
         )
         self.page.show_dialog(dialog)
 
+    def open_wizard_sheet_dialog(self, char_index):
+        char = self.party_data["characters"][char_index]
+        fields = {
+            "name": ft.TextField(
+                label="Character Name",
+                value=char.get("name", ""),
+            ),
+            "level": ft.TextField(
+                label="Level",
+                value=str(char.get("level", 1)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+            ),
+            "hp_current": ft.TextField(
+                label="Current Health",
+                value=str(char.get("hp_current", 4)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+            ),
+            "hp_max": ft.TextField(
+                label="Base Maximum Health",
+                value=str(char.get("hp_max", 4)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+            ),
+            "magic_resistance": ft.TextField(
+                label="Base Magic Resistance (max 5)",
+                value=str(char.get("magic_resistance", 2)),
+                keyboard_type=ft.KeyboardType.NUMBER,
+            ),
+        }
+        resource_fields, resource_fields_row = self.build_resource_fields(char)
+        fields.update(resource_fields)
+        weapon_controls, get_weapon_values = self.build_weapon_editor(
+            char.get("weapons", [])
+        )
+        item_rows, get_item_values = self.build_special_items_editor(
+            char.get("special_items", char.get("hero_items", {}))
+        )
+        magic_damage = max(0, int(char.get("magic_damage", 0)))
+        damage_text = ft.Text(
+            f"Magic Damage (heals on exit): {magic_damage} | "
+            f"Effective Max HP: {effective_max_hit_points(char)}",
+            color=ft.Colors.RED_400 if magic_damage else None,
+        )
+        spell_rows = ft.Column(spacing=8)
+        spells = [
+            {
+                **spell,
+                "category": spell.get(
+                    "category",
+                    game_catalogs.SPELL_CATEGORIES.get(spell.get("name")),
+                ),
+                "cost": spell.get(
+                    "cost",
+                    game_catalogs.SPELL_COSTS.get(spell.get("name")),
+                ),
+                "uses_remaining": max(
+                    0,
+                    int(spell.get("uses_remaining", 1)),
+                ),
+                "max_uses": max(
+                    1,
+                    int(
+                        spell.get(
+                            "max_uses",
+                            spell.get("uses_remaining", 1),
+                        )
+                    ),
+                    max(0, int(spell.get("uses_remaining", 1))),
+                ),
+            }
+            for spell in char.get("spells", [])
+        ]
+
+        def render_spells(update=False):
+            rows = []
+            for index, spell in enumerate(spells):
+                cost = spell.get("cost")
+                try:
+                    current_hp = int(fields["hp_current"].value or "0")
+                    base_max_hp = int(fields["hp_max"].value or "0")
+                except ValueError:
+                    current_hp = None
+                    base_max_hp = None
+                can_cast = (
+                    spell["uses_remaining"] > 0
+                    and isinstance(cost, int)
+                    and current_hp is not None
+                    and base_max_hp is not None
+                    and current_hp - cost > 0
+                    and current_hp
+                    <= max(
+                        0,
+                        base_max_hp - int(char.get("magic_damage", 0)),
+                    )
+                )
+                rows.append(
+                    ft.Row(
+                        [
+                            ft.Text(
+                                f"{spell.get('category', 'Unknown Type')} | "
+                                f"{spell['name']} | Cost: "
+                                f"{cost if cost is not None else 'unset'} | "
+                                f"Uses: {spell['uses_remaining']}",
+                                expand=True,
+                                color=(
+                                    ft.Colors.GREY_500
+                                    if spell["uses_remaining"] == 0
+                                    else None
+                                ),
+                            ),
+                            ft.Button(
+                                content="Cast",
+                                disabled=not can_cast,
+                                tooltip=(
+                                    "Spell cost would reduce HP to 0 or less."
+                                    if spell["uses_remaining"] > 0
+                                    and isinstance(cost, int)
+                                    and current_hp is not None
+                                    and current_hp - cost <= 0
+                                    else None
+                                ),
+                                on_click=lambda e, spell_index=index: cast_spell(
+                                    spell_index
+                                ),
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                tooltip="Remove spell",
+                                on_click=lambda e, spell_index=index: remove_spell(
+                                    spell_index
+                                ),
+                            ),
+                        ]
+                    )
+                )
+            spell_rows.controls = rows
+            if update:
+                self.page.update()
+
+        def update_damage_text():
+            current_magic_damage = max(
+                0,
+                int(char.get("magic_damage", 0)),
+            )
+            damage_text.value = (
+                f"Magic Damage (heals on exit): {current_magic_damage} | "
+                f"Effective Max HP: "
+                f"{max(0, int(fields['hp_max'].value or '0') - current_magic_damage)}"
+            )
+            damage_text.color = (
+                ft.Colors.RED_400 if current_magic_damage else None
+            )
+
+        def cast_spell(spell_index):
+            try:
+                current_hp = int(fields["hp_current"].value or "0")
+                base_max_hp = int(fields["hp_max"].value or "0")
+            except ValueError:
+                fields["hp_current"].error_text = (
+                    "Enter valid whole-number Health before casting."
+                )
+                self.page.update()
+                return
+
+            saved_spells = char.get("spells", [])
+            char["spells"] = spells
+            if self.cast_spell(
+                char_index,
+                spell_index,
+                current_hp=current_hp,
+                base_max_hp=base_max_hp,
+            ):
+                fields["hp_current"].value = str(char["hp_current"])
+                fields["hp_max"].value = str(char["hp_max"])
+                update_damage_text()
+                render_spells(update=True)
+            else:
+                char["spells"] = saved_spells
+
+        def remove_spell(spell_index):
+            spells.pop(spell_index)
+            render_spells(update=True)
+
+        spell_category = ft.Dropdown(
+            label="Spell Type",
+            options=[
+                ft.dropdown.Option(category)
+                for category in game_catalogs.SPELL_CATALOG
+            ],
+        )
+        spell_choice = ft.Dropdown(
+            label="Spell",
+            options=[],
+            disabled=True,
+            # expand=True,
+        )
+
+        def update_spell_options(e):
+            entries = game_catalogs.SPELL_CATALOG.get(
+                spell_category.value,
+                (),
+            )
+            spell_choice.options = [
+                ft.dropdown.Option(
+                    key=name,
+                    text=f"{name} (Cost: {cost})",
+                )
+                for name, cost in entries
+            ]
+            spell_choice.value = None
+            spell_choice.disabled = not bool(entries)
+            spell_choice.update()
+
+        spell_category.on_select = update_spell_options
+
+        def add_spell(e):
+            name = spell_choice.value
+            category = spell_category.value
+            if not name or not category:
+                spell_choice.error_text = "Choose a spell to add."
+                spell_choice.update()
+                return
+            spell_costs = dict(game_catalogs.SPELL_CATALOG[category])
+            existing_spell = next(
+                (
+                    spell
+                    for spell in spells
+                    if spell["name"] == name
+                    and spell.get("category") == category
+                ),
+                None,
+            )
+            if existing_spell:
+                existing_spell["max_uses"] = max(
+                    1,
+                    int(
+                        existing_spell.get(
+                            "max_uses",
+                            existing_spell.get("uses_remaining", 1),
+                        )
+                    ),
+                    existing_spell["uses_remaining"],
+                ) + 1
+                existing_spell["uses_remaining"] += 1
+            else:
+                spells.append(
+                    {
+                        "name": name,
+                        "category": category,
+                        "cost": spell_costs[name],
+                        "uses_remaining": 1,
+                        "max_uses": 1,
+                    }
+                )
+            spell_choice.error_text = None
+            spell_choice.value = None
+            spell_choice.update()
+            render_spells(update=True)
+
+        render_spells()
+
+        def save_wizard_sheet(e):
+            try:
+                values = {
+                    key: int(field.value or "0")
+                    for key, field in fields.items()
+                    if key != "name"
+                }
+                weapon_values = get_weapon_values()
+                item_values = get_item_values()
+                if any(value < 0 for value in values.values()):
+                    raise ValueError
+                if any(
+                    item["quantity"] < 0
+                    for entries in item_values.values()
+                    for item in entries
+                ):
+                    raise ValueError
+                if values["level"] < 1:
+                    fields["level"].error_text = "Level must be at least 1."
+                    fields["level"].update()
+                    return
+                if values["magic_resistance"] > 5:
+                    fields["magic_resistance"].error_text = (
+                        "Magic Resistance cannot exceed 5."
+                    )
+                    fields["magic_resistance"].update()
+                    return
+                effective_max = max(
+                    0,
+                    values["hp_max"] - int(char.get("magic_damage", 0)),
+                )
+                if values["hp_current"] > effective_max:
+                    fields["hp_current"].error_text = (
+                        "Current Health cannot exceed effective Maximum Health."
+                    )
+                    fields["hp_current"].update()
+                    return
+                if not (fields["name"].value or "").strip():
+                    fields["name"].error_text = "Character name cannot be blank."
+                    fields["name"].update()
+                    return
+            except ValueError:
+                self.page.snack_bar = ft.SnackBar(
+                    ft.Text(
+                        "Enter non-negative whole-number Wizard stats, "
+                        "Weapon Skill, Combat Bonus, and Special Item quantities."
+                    )
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+                return
+
+            for field in fields.values():
+                field.error_text = None
+            char.update(values)
+            char["name"] = fields["name"].value.strip()
+            char["weapons"] = weapon_values
+            char["special_items"] = item_values
+            char["spells"] = spells
+            damage_text.value = (
+                f"Magic Damage (heals on exit): "
+                f"{max(0, int(char.get('magic_damage', 0)))} | "
+                f"Effective Max HP: {effective_max_hit_points(char)}"
+            )
+            self.page.pop_dialog()
+            self.refresh_grid()
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Manage Wizard Sheet"),
+            content=ft.Container(
+                width=700,
+                height=650,
+                content=ft.Column(
+                    [
+                        fields["name"],
+                        ft.Row([fields["level"], fields["magic_resistance"]]),
+                        ft.Row([fields["hp_current"], fields["hp_max"]]),
+                        damage_text,
+                        resource_fields_row,
+                        *weapon_controls,
+                        ft.Divider(),
+                        ft.Text("Special Items"),
+                        *item_rows,
+                        ft.Divider(),
+                        ft.Row(
+                            [
+                                ft.Text("Spells", weight=ft.FontWeight.BOLD),
+                                spell_category,
+                                spell_choice,
+                                ft.TextButton(
+                                    content="+ Add Spell",
+                                    on_click=add_spell,
+                                ),
+                            ],
+                            wrap=True,
+                        ),
+                        spell_rows,
+                    ],
+                    scroll=ft.ScrollMode.AUTO,
+                    tight=True,
+                ),
+            ),
+            actions=[
+                ft.TextButton(
+                    content="Cancel",
+                    on_click=lambda e: self.page.pop_dialog(),
+                ),
+                ft.Button(content="Save", on_click=save_wizard_sheet),
+            ],
+        )
+        self.page.show_dialog(dialog)
+
     def open_character_dialog(self, char_index=None):
         if not isinstance(char_index, int):
             char_index = None
@@ -1198,6 +1756,9 @@ class CharacterManagerApp:
             return
         elif self.party_data["characters"][char_index].get("class_name") == "Thief":
             self.open_thief_sheet_dialog(char_index)
+            return
+        elif self.party_data["characters"][char_index].get("class_name") == "Wizard":
+            self.open_wizard_sheet_dialog(char_index)
             return
 
         is_edit = char_index is not None
@@ -1209,19 +1770,28 @@ class CharacterManagerApp:
             "hp_max": 8,
             "magic_current": 0,
             "magic_max": 0,
+            "experience_points": 0,
+            "beazants": 0,
             "inventory": [],
             "weapons": [],
         }
         can_have_spells = char.get("class_name") in game_catalogs.SPELLCASTING_CLASSES
+        is_wizard = char.get("class_name") == "Wizard"
         can_carry_items = char.get("class_name") != "Charmed Monster"
 
         txt_name = ft.TextField(label="Character Name", value=char["name"])
         txt_class = ft.TextField(label="Class / Role", value=char["class_name"])
         txt_str = ft.TextField(label="Strength", value=str(char["strength"]), keyboard_type=ft.KeyboardType.NUMBER)
         txt_hp_curr = ft.TextField(label="Current HP", value=str(char["hp_current"]), keyboard_type=ft.KeyboardType.NUMBER)
-        txt_hp_max = ft.TextField(label="Max HP", value=str(char["hp_max"]), keyboard_type=ft.KeyboardType.NUMBER)
+        txt_hp_max = ft.TextField(
+            label="Base Max HP",
+            value=str(char["hp_max"]),
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
         txt_mag_curr = ft.TextField(label="Current Magic", value=str(char["magic_current"]), keyboard_type=ft.KeyboardType.NUMBER)
         txt_mag_max = ft.TextField(label="Max Magic", value=str(char["magic_max"]), keyboard_type=ft.KeyboardType.NUMBER)
+        txt_mag_curr.visible = not is_wizard
+        txt_mag_max.visible = not is_wizard
         txt_magic_resistance = ft.TextField(
             label="Base Magic Resistance (max 5)",
             value=str(
@@ -1236,6 +1806,7 @@ class CharacterManagerApp:
             keyboard_type=ft.KeyboardType.NUMBER,
             visible=can_carry_items,
         )
+        resource_fields, resource_fields_row = self.build_resource_fields(char)
 
         inv_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=120)
         spell_list_column = ft.Column(scroll=ft.ScrollMode.AUTO, height=120)
@@ -1257,10 +1828,54 @@ class CharacterManagerApp:
         working_spells = [
             {
                 **spell,
-                "uses_remaining": max(0, int(spell.get("uses_remaining", 1))),
+                **(
+                    {
+                        "category": spell.get(
+                            "category",
+                            game_catalogs.SPELL_CATEGORIES.get(spell.get("name")),
+                        ),
+                        "cost": spell.get(
+                            "cost",
+                            game_catalogs.SPELL_COSTS.get(spell.get("name")),
+                        ),
+                    }
+                    if is_wizard
+                    else {}
+                ),
+                "uses_remaining": (
+                    min(1, max(0, int(spell.get("uses_remaining", 1))))
+                    if is_wizard
+                    else max(0, int(spell.get("uses_remaining", 1)))
+                ),
             }
             for spell in char.get("spells", [])
         ] if can_have_spells else []
+
+        def cast_working_spell(index):
+            try:
+                current_hp = int(txt_hp_curr.value or "0")
+                base_max_hp = int(txt_hp_max.value or "0")
+            except ValueError:
+                self.page.snack_bar = ft.SnackBar(
+                    ft.Text("Enter valid whole-number HP before casting.")
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+                return
+
+            saved_spells = char.get("spells", [])
+            char["spells"] = working_spells
+            if self.cast_spell(
+                char_index,
+                index,
+                current_hp=current_hp,
+                base_max_hp=base_max_hp,
+            ):
+                txt_hp_curr.value = str(char["hp_current"])
+                txt_hp_max.value = str(char["hp_max"])
+                render_sublists()
+            else:
+                char["spells"] = saved_spells
 
         def render_sublists():
             inv_list_column.controls.clear()
@@ -1275,39 +1890,83 @@ class CharacterManagerApp:
                 spell_list_column.controls.clear()
                 for idx, spell in enumerate(working_spells):
                     uses_remaining = spell["uses_remaining"]
-                    spell_list_column.controls.append(
-                        ft.Row([
-                            ft.Text(
-                                f"{spell['name']} - {spell.get('description', '')} "
-                                f"(Uses: {uses_remaining})",
-                                size=12,
-                                expand=True,
-                                color=(
-                                    ft.Colors.GREY_500
-                                    if uses_remaining == 0
+                    try:
+                        hp_for_casting = int(txt_hp_curr.value or "0")
+                    except ValueError:
+                        hp_for_casting = None
+                    spell_description = (
+                        f"{spell.get('category', '')} | "
+                        f"{spell['name']} | Cost: {spell.get('cost', 'unset')} | "
+                        f"Uses: {uses_remaining}"
+                        if is_wizard
+                        else (
+                            f"{spell['name']} - {spell.get('description', '')} "
+                            f"(Uses: {uses_remaining})"
+                        )
+                    )
+                    spell_controls = [
+                        ft.Text(
+                            spell_description,
+                            size=12,
+                            expand=True,
+                            color=(
+                                ft.Colors.GREY_500
+                                if uses_remaining == 0
+                                else None
+                            ),
+                        )
+                    ]
+                    if is_wizard:
+                        cost = spell.get("cost")
+                        can_cast = (
+                            uses_remaining > 0
+                            and isinstance(cost, int)
+                            and hp_for_casting is not None
+                            and hp_for_casting - cost > 0
+                        )
+                        spell_controls.append(
+                            ft.Button(
+                                content="Cast",
+                                disabled=not can_cast,
+                                tooltip=(
+                                    "Spell cost would reduce HP to 0 or less."
+                                    if uses_remaining > 0
+                                    and isinstance(cost, int)
+                                    and hp_for_casting is not None
+                                    and hp_for_casting - cost <= 0
                                     else None
                                 ),
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.REMOVE,
-                                icon_size=16,
-                                tooltip="Record spell used",
-                                disabled=uses_remaining == 0,
-                                on_click=lambda e, i=idx: adjust_spell_uses(i, -1),
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.ADD,
-                                icon_size=16,
-                                tooltip="Increase available uses",
-                                on_click=lambda e, i=idx: adjust_spell_uses(i, 1),
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.DELETE,
-                                icon_size=16,
-                                tooltip="Remove spell",
-                                on_click=lambda e, i=idx: remove_spell(i),
-                            ),
-                        ])
+                                on_click=lambda e, i=idx: cast_working_spell(i),
+                            )
+                        )
+                    else:
+                        spell_controls.extend(
+                            [
+                                ft.IconButton(
+                                    icon=ft.Icons.REMOVE,
+                                    icon_size=16,
+                                    tooltip="Record spell used",
+                                    disabled=uses_remaining == 0,
+                                    on_click=lambda e, i=idx: adjust_spell_uses(i, -1),
+                                ),
+                                ft.IconButton(
+                                    icon=ft.Icons.ADD,
+                                    icon_size=16,
+                                    tooltip="Increase available uses",
+                                    on_click=lambda e, i=idx: adjust_spell_uses(i, 1),
+                                ),
+                            ]
+                        )
+                    spell_controls.append(
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_size=16,
+                            tooltip="Remove spell",
+                            on_click=lambda e, i=idx: remove_spell(i),
+                        )
+                    )
+                    spell_list_column.controls.append(
+                        ft.Row(spell_controls)
                     )
             self.page.update()
 
@@ -1411,11 +2070,29 @@ class CharacterManagerApp:
                     "strength": int(txt_str.value or 10),
                     "hp_current": int(txt_hp_curr.value or 1),
                     "hp_max": int(txt_hp_max.value or 1),
+                    "experience_points": int(
+                        resource_fields["experience_points"].value or "0"
+                    ),
+                    "beazants": int(resource_fields["beazants"].value or "0"),
+                    "magic_damage": max(
+                        0,
+                        int(char.get("magic_damage", 0)),
+                    ),
                     "magic_current": int(txt_mag_curr.value or 0),
                     "magic_max": int(txt_mag_max.value or 0),
                     "inventory": [] if is_charmed_monster else working_inv,
                     "weapons": get_weapon_values(),
                 }
+                if (
+                    char_data["experience_points"] < 0
+                    or char_data["beazants"] < 0
+                ):
+                    raise ValueError
+                if char_data["hp_current"] > max(
+                    0,
+                    char_data["hp_max"] - char_data["magic_damage"],
+                ):
+                    raise ValueError
                 if not is_charmed_monster:
                     magic_resistance = int(txt_magic_resistance.value or 0)
                     if not 0 <= magic_resistance <= 5:
@@ -1452,20 +2129,50 @@ class CharacterManagerApp:
         manage_controls = [
             txt_name,
             ft.Row([txt_class, txt_str]),
-            ft.Row([txt_hp_curr, txt_hp_max, txt_mag_curr, txt_mag_max]),
+            ft.Row(
+                [
+                    txt_hp_curr,
+                    txt_hp_max,
+                    *([] if is_wizard else [txt_mag_curr, txt_mag_max]),
+                ]
+            ),
+            resource_fields_row,
             txt_magic_resistance,
             *weapon_controls,
             inventory_section,
             special_items_section,
         ]
         if can_have_spells:
+            spell_header = ft.Row(
+                [ft.Text("Spells", weight=ft.FontWeight.BOLD)]
+                + (
+                    []
+                    if is_wizard
+                    else [
+                        ft.TextButton(
+                            content="+ Add",
+                            on_click=open_add_spell_dlg,
+                        )
+                    ]
+                )
+            )
             manage_controls.extend(
                 [
                     ft.Divider(),
-                    ft.Row([ft.Text("Spells", weight=ft.FontWeight.BOLD), ft.TextButton(content="+ Add", on_click=open_add_spell_dlg)]),
+                    spell_header,
                     spell_list_column,
                 ]
             )
+
+        magic_damage = max(0, int(char.get("magic_damage", 0)))
+        manage_controls.insert(
+            3,
+            ft.Text(
+                f"Magic Damage (heals on exit): {magic_damage} | "
+                f"Effective Max HP: {effective_max_hit_points(char)}",
+                color=ft.Colors.RED_400 if magic_damage else None,
+            ),
+        )
 
         main_dlg = ft.AlertDialog(
             title=ft.Text("Edit Character Sheet" if is_edit else "New Character"),
@@ -1507,6 +2214,8 @@ class CharacterManagerApp:
                     ).strip().upper()
                     if character_type != "PC":
                         continue
+                    character.setdefault("experience_points", 0)
+                    character.setdefault("beazants", 0)
                     legacy_items = character.pop("hero_items", None)
                     if legacy_items is not None:
                         special_items = character.setdefault("special_items", {})

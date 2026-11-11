@@ -1,0 +1,33 @@
+{
+  "name": "test2",
+  "class_type": "THIEF",
+  "level": 1,
+  "created_date": "2026-11-10T19:15:29.507159",
+  "death_date": null,
+  "max_hp": 6,
+  "current_hp": 6,
+  "magic_wounds": 0,
+  "magic_resistance": 1,
+  "detrap_skill": 1,
+  "weapons": [
+    {
+      "name": "SWORD",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 1
+    },
+    {
+      "name": "HAMMER",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
+    }
+  ],
+  "equipped_weapon_index": null,
+  "items": [],
+  "spells": [],
+  "bezants": 0,
+  "gems": 0,
+  "is_alive": true,
+  "is_retired": false
+}
