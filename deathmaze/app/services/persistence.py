@@ -10,9 +10,7 @@ class CharacterSerializer:
 
     @staticmethod
     def to_dict(character: Character) -> Dict[str, Any]:
-        """Converts a Character instance into a JSON-serializable dictionary."""
         data = asdict(character)
-        # Convert enums to string representations
         data["class_type"] = character.class_type.name
         for weapon in data["weapons"]:
             weapon["name"] = WeaponType(weapon["name"]).name if isinstance(weapon["name"], WeaponType) else weapon["name"]
@@ -26,8 +24,6 @@ class CharacterSerializer:
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> Character:
-        """Reconstructs a Character instance from a dictionary."""
-        # Reconstruct weapons
         weapons = [
             Weapon(
                 name=WeaponType[w["name"]],
@@ -38,7 +34,6 @@ class CharacterSerializer:
             for w in data.get("weapons", [])
         ]
 
-        # Reconstruct items
         items = [
             Item(
                 name=i["name"],
@@ -49,7 +44,6 @@ class CharacterSerializer:
             for i in data.get("items", [])
         ]
 
-        # Reconstruct spells
         spells = [
             Spell(
                 name=s["name"],
@@ -79,7 +73,8 @@ class CharacterSerializer:
             bezants=data.get("bezants", 0),
             gems=data.get("gems", 0),
             is_alive=data.get("is_alive", True),
-            is_retired=data.get("is_retired", False)
+            is_retired=data.get("is_retired", False),
+            is_in_party=data.get("is_in_party", False)
         )
 
     @classmethod

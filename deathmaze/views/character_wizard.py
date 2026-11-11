@@ -1,123 +1,185 @@
 from datetime import datetime
 from PySide6.QtWidgets import (
-    QWizard, QWizardPage, QVBoxLayout, QFormLayout, 
-    QLineEdit, QComboBox, QLabel, QMessageBox
+    QWizard, QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, 
+    QLineEdit, QComboBox, QMessageBox
 )
-from app.models.enums import ClassType, WeaponType
-from app.models.character import Character, Weapon
+from PySide6.QtCore import Qt
+from app.models.character import Character, Weapon, Item
+from app.models.enums import ClassType
 from app.services.character_manager import CharacterManager
 from views.widgets.weapon_selector import WeaponSelectorWidget
 from views.widgets.spell_selector import SpellSelectorWidget
 from views.widgets.starting_bonus import StartingBonusWidget
 
 
-class Step1IdentityPage(QWizardPage):
-    """Step 1: Character identity and class selection for all classes."""
+class Step1IdentityAndClass(QWizardPage):
+    """Wizard Step 1: Character Identity, Class Selection, and Live Unique Name Validation."""
 
-    def __init__(self, parent=None):
+    def __init__(self, manager: CharacterManager, parent=None):
         super().__init__(parent)
+        self.manager = manager
         self.setTitle("Step 1: Identity & Class Selection")
-        self.setSubTitle("Enter character name and choose a class.")
+        self.setSubTitle("Enter a unique character name and choose your OSR character class.")
 
-        layout = QFormLayout(self)
-        self.name_edit = QLineEdit()
+        layout = QVBoxLayout(self)
+
+        # Name Input
+        layout.addWidget(QLabel("Character Name:"))
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("Please enter a character name")
+        self.name_input.textChanged.connect(self.completeChanged)
+        layout.addWidget(self.name_input)
+
+        # Duplicate Name / Validation Error Label
+        self.error_label = QLabel()
+        self.error_label.setStyleSheet("color: #ff6b6b; font-weight: bold;")
+        layout.addWidget(self.error_label)
+
+        # Class Selection
+        layout.addWidget(QLabel("Character Class:"))
         self.class_combo = QComboBox()
+        for ct in ClassType:
+            self.class_combo.addItem(ct.name.replace('_', ' ').title(), ct)
+        layout.addWidget(self.class_combo)
 
-        for c_type in ClassType:
-            self.class_combo.addItem(c_type.name.replace('_', ' ').title(), c_type)
+        # Register fields for QWizard flow
+        self.registerField("character_name*", self.name_input)
 
-        self.created_label = QLabel(datetime.now().strftime("%Y-%m-%d %H:%M"))
+    def isComplete(self) -> bool:
+        """Enforces that the name is non-empty and unique in the repository."""
+        name = self.name_input.text().strip()
+        if not name:
+            self.error_label.setText("")
+            return False
 
-        layout.addRow("Character Name:", self.name_edit)
-        layout.addRow("Creation Date:", self.created_label)
-        layout.addRow("Class:", self.class_combo)
+        # Check if character name already exists
+        if self.manager.get_character(name):
+            self.error_label.setText("Name already claimed")
+            return False
 
-        self.registerField("character_name*", self.name_edit)
+        self.error_label.setText("")
+        return True
 
     def get_selected_class(self) -> ClassType:
         return self.class_combo.currentData()
 
 
-class Step2CapabilitiesPage(QWizardPage):
-    """Step 2: Dynamic class stats, weapon selection, spells, and starting bonus."""
+class Step2Capabilities(QWizardPage):
+    """Wizard Step 2: Dynamic weapons, starting bonuses, and spells configuration."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setTitle("Step 2: Class Capabilities & Gear")
-        self.setSubTitle("Configure weapons, spells, and starting bonuses.")
+        self.setTitle("Step 2: Capabilities & Equipment")
+        self.setSubTitle("Configure your starting weapons, spells, and mutual exclusive bonuses.")
 
         self.layout = QVBoxLayout(self)
+
+        # Stat Summary Label
         self.stats_label = QLabel()
         self.layout.addWidget(self.stats_label)
 
-        # Custom Widgets
+        # Weapon Selector Widget
         self.weapon_selector = WeaponSelectorWidget()
-        self.spell_selector_1 = SpellSelectorWidget(title="Primary Starting Spell")
-        self.spell_selector_2 = SpellSelectorWidget(title="Secondary Spell (Option C)")
-        self.bonus_widget = StartingBonusWidget()
-
         self.layout.addWidget(self.weapon_selector)
+
+        # Spell Selectors (for Magic Users)
+        self.spell_selector_1 = SpellSelectorWidget()
+        self.spell_selector_2 = SpellSelectorWidget()
+        self.spell_selector_1.setVisible(False)
+        self.spell_selector_2.setVisible(False)
+        
+        self.layout.addWidget(QLabel("Primary Spell:"))
         self.layout.addWidget(self.spell_selector_1)
+        self.layout.addWidget(QLabel("Secondary Spell (Bonus Option C):"))
         self.layout.addWidget(self.spell_selector_2)
+
+        # Starting Bonus Widget
+        self.bonus_widget = StartingBonusWidget()
+        self.bonus_widget.bonus_changed.connect(self._on_bonus_changed)
         self.layout.addWidget(self.bonus_widget)
 
-        self.bonus_widget.bonus_changed.connect(self._on_bonus_changed)
-
     def initializePage(self) -> None:
+        """Dynamically build widgets based on Step 1 class selection."""
         wizard = self.wizard()
-        step1 = wizard.page(0)
-        class_type: ClassType = step1.get_selected_class()
+        class_type = wizard.step1.get_selected_class()
 
-        baselines = {
-            ClassType.HERO: "Base Stats: HP: 8 | Magic Resistance: 1 | Weapons: 2",
-            ClassType.THIEF: "Base Stats: HP: 6 | Magic Resistance: 1 | Detrap: 1 | Weapons: 2",
-            ClassType.WIZARD: "Base Stats: HP: 4 | Magic Resistance: 2 | Weapons: 2 (Daggers/Throwing Daggers)",
-            ClassType.WITCH_HUNTER: "Base Stats: HP: 7 | Magic Resistance: 2 | Special: Immune to Vampire Charm",
-            ClassType.HEALER: "Base Stats: HP: 4 | Magic Resistance: 1 | Weapons: 1 Dagger",
-            ClassType.PEACE_MAKER: "Base Stats: HP: 6 | Magic Resistance: 1 | Negotiation: +4 | Weapons: None",
-        }
-        self.stats_label.setText(f"<b>{baselines.get(class_type, '')}</b>")
+        base_stats = {
+            ClassType.HERO: {"hp": 8, "mr": 1, "detrap": 0},
+            ClassType.THIEF: {"hp": 6, "mr": 1, "detrap": 1},
+            ClassType.WIZARD: {"hp": 4, "mr": 2, "detrap": 0},
+            ClassType.WITCH_HUNTER: {"hp": 7, "mr": 2, "detrap": 0},
+            ClassType.HEALER: {"hp": 4, "mr": 1, "detrap": 0},
+            ClassType.PEACE_MAKER: {"hp": 6, "mr": 1, "detrap": 0},
+        }[class_type]
 
+        stats_text = (
+            f"<b>Base Stats:</b> HP: {base_stats['hp']} | "
+            f"Magic Resistance: {base_stats['mr']} | "
+            f"Detrap Skill: {base_stats['detrap']}"
+        )
+        self.stats_label.setText(stats_text)
+
+        # Configure Weapon Selector
         self.weapon_selector.set_class(class_type)
-        self.bonus_widget.set_class(class_type)
 
-        is_magic = class_type in {ClassType.WIZARD, ClassType.WITCH_HUNTER, ClassType.HEALER, ClassType.PEACE_MAKER}
-        self.spell_selector_1.setVisible(is_magic)
+        # Configure Spells & Bonuses
+        is_magic = class_type in {
+            ClassType.WIZARD, ClassType.WITCH_HUNTER, 
+            ClassType.HEALER, ClassType.PEACE_MAKER
+        }
+
         if is_magic:
             self.spell_selector_1.set_class(class_type)
-
-        self._on_bonus_changed()
-
-    def _on_bonus_changed(self) -> None:
-        step1 = self.wizard().page(0)
-        class_type: ClassType = step1.get_selected_class()
-        bonus = self.bonus_widget.get_selected_bonus()
-
-        is_magic = class_type in {ClassType.WIZARD, ClassType.WITCH_HUNTER, ClassType.HEALER, ClassType.PEACE_MAKER}
-        if is_magic and bonus == "c":
-            self.spell_selector_2.setVisible(True)
+            self.spell_selector_1.setVisible(True)
             self.spell_selector_2.set_class(class_type)
+            self.spell_selector_2.setVisible(False)  # Hidden unless bonus C is chosen
+        else:
+            self.spell_selector_1.setVisible(False)
+            self.spell_selector_2.setVisible(False)
+
+        self.bonus_widget.configure_for_class(class_type)
+
+    def _on_bonus_changed(self, bonus_key: str) -> None:
+        wizard = self.wizard()
+        class_type = wizard.step1.get_selected_class()
+        is_magic = class_type in {
+            ClassType.WIZARD, ClassType.WITCH_HUNTER, 
+            ClassType.HEALER, ClassType.PEACE_MAKER
+        }
+        if is_magic and bonus_key == "c":
+            self.spell_selector_2.setVisible(True)
         else:
             self.spell_selector_2.setVisible(False)
 
 
 class CharacterCreationWizard(QWizard):
-    """Universal 2-step character creation wizard for all DeathMaze classes."""
+    """Universal 2-Step Character Creation Wizard."""
 
     def __init__(self, manager: CharacterManager, parent=None):
         super().__init__(parent)
         self.manager = manager
-        self.setWindowTitle("DeathMaze Deluxe - Character Creation Wizard")
+        self.setWindowTitle("DeathMaze Deluxe - Character Creation")
+        self.resize(600, 500)
 
-        self.step1 = Step1IdentityPage()
-        self.step2 = Step2CapabilitiesPage()
+        self.step1 = Step1IdentityAndClass(manager, self)
+        self.step2 = Step2Capabilities(self)
 
         self.addPage(self.step1)
         self.addPage(self.step2)
 
     def accept(self) -> None:
-        name = self.step1.field("character_name")
+        name = self.step1.field("character_name").strip()
         class_type = self.step1.get_selected_class()
+
+        # Final safety check against race conditions or direct inputs
+        if self.manager.get_character(name):
+            QMessageBox.warning(
+                self, 
+                "Name Conflict", 
+                f"A character named '{name}' already exists. Please choose a unique name."
+            )
+            self.setCurrentId(0)
+            return
 
         base_stats = {
             ClassType.HERO: {"hp": 8, "mr": 1, "detrap": 0},

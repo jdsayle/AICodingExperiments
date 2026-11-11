@@ -1,8 +1,8 @@
 {
-  "name": "test6",
+  "name": "test",
   "class_type": "WITCH_HUNTER",
   "level": 1,
-  "created_date": "2026-11-10T19:19:08.003850",
+  "created_date": "2026-11-10T22:00:54.468503",
   "death_date": null,
   "max_hp": 7,
   "current_hp": 7,
@@ -11,13 +11,13 @@
   "detrap_skill": 0,
   "weapons": [
     {
-      "name": "SWORD",
+      "name": "HAMMER",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
     },
     {
-      "name": "AXE",
+      "name": "BOW_AND_ARROWS",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
@@ -27,10 +27,19 @@
   "items": [],
   "spells": [
     {
-      "name": "Redeem Traitor",
-      "cost": 3,
+      "name": "Protection From Undead",
+      "cost": 1,
       "is_combat_spell": true,
-      "description": "Returns charmed character back to the party.",
+      "description": "Undead that fail resist cannot attack Witch Hunter.",
+      "allowed_classes": [
+        "WITCH_HUNTER"
+      ]
+    },
+    {
+      "name": "Righteous Fury",
+      "cost": 2,
+      "is_combat_spell": true,
+      "description": "Berserk: +1 to hit in combat, +3 against Undead.",
       "allowed_classes": [
         "WITCH_HUNTER"
       ]
@@ -39,5 +48,6 @@
   "bezants": 0,
   "gems": 0,
   "is_alive": true,
-  "is_retired": false
+  "is_retired": false,
+  "is_in_party": true
 }

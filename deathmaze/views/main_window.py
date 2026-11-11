@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, 
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QTabWidget, QScrollArea, QLabel, QMessageBox, QGridLayout
 )
 from PySide6.QtCore import Qt
@@ -9,29 +9,44 @@ from views.widgets.character_card import CharacterCardWidget
 
 
 class MainWindow(QMainWindow):
-    """Main window integrating left sidebar character management and right tabbed workspace."""
+    """Main window integrating split ACTIVE / TAVERN sidebar and right tabbed workspace."""
 
     def __init__(self, manager: CharacterManager, parent=None):
         super().__init__(parent)
         self.manager = manager
         self.setWindowTitle("DeathMaze Deluxe - Desktop Manager")
-        self.resize(1100, 700)
+        self.resize(1150, 700)
 
-        # Central Split Widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
 
-        # --- LEFT SIDEBAR ---
+        # --- LEFT SIDEBAR (ACTIVE & TAVERN/TOWN) ---
         sidebar_widget = QWidget()
         sidebar_layout = QVBoxLayout(sidebar_widget)
-        sidebar_widget.setFixedWidth(260)
+        sidebar_widget.setFixedWidth(280)
 
-        sidebar_layout.addWidget(QLabel("<h3>Character Roster</h3>"))
-        self.char_list = QListWidget()
-        self.char_list.currentTextChanged.connect(self._on_sidebar_selection_changed)
-        sidebar_layout.addWidget(self.char_list)
+        # Active Section
+        sidebar_layout.addWidget(QLabel("<b>ACTIVE PARTY (Max 6)</b>"))
+        self.active_list = QListWidget()
+        self.active_list.itemClicked.connect(self._on_list_item_clicked)
+        sidebar_layout.addWidget(self.active_list)
 
+        self.toggle_to_tavern_btn = QPushButton("↓ Move to Tavern / Town")
+        self.toggle_to_tavern_btn.clicked.connect(self._move_to_tavern)
+        sidebar_layout.addWidget(self.toggle_to_tavern_btn)
+
+        # Tavern/Town Section
+        sidebar_layout.addWidget(QLabel("<b>TAVERN / TOWN (Stable)</b>"))
+        self.tavern_list = QListWidget()
+        self.tavern_list.itemClicked.connect(self._on_list_item_clicked)
+        sidebar_layout.addWidget(self.tavern_list)
+
+        self.toggle_to_active_btn = QPushButton("↑ Recruit to Active Party")
+        self.toggle_to_active_btn.clicked.connect(self._move_to_active)
+        sidebar_layout.addWidget(self.toggle_to_active_btn)
+
+        # Create / Delete Action Buttons
         btn_layout = QHBoxLayout()
         self.create_btn = QPushButton("+ Create")
         self.delete_btn = QPushButton("- Delete")
@@ -47,7 +62,7 @@ class MainWindow(QMainWindow):
         # --- RIGHT TABBED WORKSPACE ---
         self.tabs = QTabWidget()
 
-        # Tab 1: Active Party Dashboard (Grid of Stat Cards)
+        # Tab 1: Active Party Dashboard (Grid of Stat Cards for Active Party)
         self.dashboard_tab = QWidget()
         self.dashboard_scroll = QScrollArea()
         self.dashboard_scroll.setWidgetResizable(True)
@@ -69,44 +84,52 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.tabs)
 
-        # Initial Refresh
-        self.refresh_character_list()
+        self.refresh_character_lists()
 
-    def refresh_character_list(self) -> None:
-        """Reloads character list from repository and updates dashboard stat cards."""
-        self.char_list.clear()
+    def refresh_character_lists(self) -> None:
+        """Reloads active party and tavern lists, updating dashboard stat cards."""
+        self.active_list.clear()
+        self.tavern_list.clear()
         characters = self.manager.list_characters()
 
-        # Populate sidebar list
+        active_characters = []
         for char in characters:
-            self.char_list.addItem(char.name)
+            item = QListWidgetItem(f"{char.name} ({char.class_type.name.replace('_', ' ').title()})")
+            item.setData(Qt.UserRole, char.name)
+            if char.is_in_party:
+                self.active_list.addItem(item)
+                active_characters.append(char)
+            else:
+                self.tavern_list.addItem(item)
 
-        # Clear and rebuild Dashboard Grid
+        # Rebuild Dashboard Grid strictly for ACTIVE Party Members
         while self.dashboard_grid.count():
             item = self.dashboard_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         cols = 2
-        for idx, char in enumerate(characters):
+        for idx, char in enumerate(active_characters):
             card = CharacterCardWidget(char)
             card.inspect_requested.connect(self._inspect_character_by_name)
             row, col = divmod(idx, cols)
             self.dashboard_grid.addWidget(card, row, col)
 
+        # Anchor cards to top-left by adding stretch factors to bottom and right
+        self.dashboard_grid.setRowStretch(self.dashboard_grid.rowCount(), 1)
+        self.dashboard_grid.setColumnStretch(cols, 1)
+
     def _open_creation_wizard(self) -> None:
-        """Launches CharacterCreationWizard modally and refreshes list on success."""
         wizard = CharacterCreationWizard(self.manager, parent=self)
         if wizard.exec():
-            self.refresh_character_list()
+            self.refresh_character_lists()
 
     def _delete_selected_character(self) -> None:
-        """Deletes selected character with QMessageBox confirmation guard."""
-        current_item = self.char_list.currentItem()
-        if not current_item:
+        selected_item = self.active_list.currentItem() or self.tavern_list.currentItem()
+        if not selected_item:
             return
 
-        char_name = current_item.text()
+        char_name = selected_item.data(Qt.UserRole)
         reply = QMessageBox.question(
             self,
             "Confirm Deletion",
@@ -117,14 +140,32 @@ class MainWindow(QMainWindow):
 
         if reply == QMessageBox.Yes:
             self.manager.delete_character(char_name)
-            self.refresh_character_list()
+            self.refresh_character_lists()
 
-    def _on_sidebar_selection_changed(self, name: str) -> None:
-        if name:
-            self._inspect_character_by_name(name)
+    def _move_to_active(self) -> None:
+        selected = self.tavern_list.currentItem()
+        if not selected:
+            return
+        char_name = selected.data(Qt.UserRole)
+        try:
+            self.manager.add_to_party(char_name)
+            self.refresh_character_lists()
+        except ValueError as e:
+            QMessageBox.warning(self, "Party Full", str(e))
+
+    def _move_to_tavern(self) -> None:
+        selected = self.active_list.currentItem()
+        if not selected:
+            return
+        char_name = selected.data(Qt.UserRole)
+        self.manager.remove_from_party(char_name)
+        self.refresh_character_lists()
+
+    def _on_list_item_clicked(self, item: QListWidgetItem) -> None:
+        char_name = item.data(Qt.UserRole)
+        self._inspect_character_by_name(char_name)
 
     def _inspect_character_by_name(self, name: str) -> None:
-        """Populates Detailed Character Inspector tab with full stats and switches tab."""
         char = self.manager.get_character(name)
         if not char:
             return
@@ -132,10 +173,11 @@ class MainWindow(QMainWindow):
         weapons_str = ", ".join(w.name.name.replace('_', ' ').title() for w in char.weapons) or "None"
         items_str = ", ".join(i.name for i in char.items) or "None"
         spells_str = ", ".join(s.name for s in char.spells) or "None"
+        location = "Active Party" if char.is_in_party else "Tavern / Town Stable"
 
         details = f"""
         <h2>{char.name} ({char.class_type.name.replace('_', ' ').title()})</h2>
-        <p><b>Level:</b> {char.level} | <b>Created:</b> {char.created_date}</p>
+        <p><b>Location:</b> {location} | <b>Level:</b> {char.level} | <b>Created:</b> {char.created_date}</p>
         <hr>
         <p><b>Hit Points:</b> {char.effective_hp} / {char.max_hp} (Magic Wounds: {char.magic_wounds})</p>
         <p><b>Magic Resistance:</b> {char.magic_resistance} | <b>Detrap Skill:</b> {char.detrap_skill}</p>
@@ -146,4 +188,4 @@ class MainWindow(QMainWindow):
         <p><b>Spells:</b> {spells_str}</p>
         """
         self.inspector_label.setText(details)
-        self.tabs.setCurrentIndex(1)  # Switch to Inspector tab
+        self.tabs.setCurrentIndex(1)
