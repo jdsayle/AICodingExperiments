@@ -1,24 +1,24 @@
 {
-  "name": "test14",
-  "class_type": "WITCH_HUNTER",
+  "name": "test23",
+  "class_type": "WIZARD",
   "level": 1,
   "experience": 0,
   "created_date": "2026-11-11",
   "death_date": null,
-  "max_hp": 7,
-  "current_hp": 7,
+  "max_hp": 4,
+  "current_hp": 4,
   "magic_wounds": 0,
-  "magic_resistance": 3,
+  "magic_resistance": 2,
   "detrap_skill": 0,
   "weapons": [
     {
-      "name": "HAMMER",
+      "name": "DAGGER",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
     },
     {
-      "name": "DAGGER",
+      "name": "THROWING_DAGGER",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
@@ -28,12 +28,21 @@
   "items": [],
   "spells": [
     {
-      "name": "Righteous Fury",
-      "cost": 2,
+      "name": "Explosion",
+      "cost": 1,
       "is_combat_spell": true,
-      "description": "Berserk: +1 to hit in combat, +3 against Undead.",
+      "description": "All monsters and adventurers suffer 1 wound if fail resist.",
       "allowed_classes": [
-        "WITCH_HUNTER"
+        "WIZARD"
+      ]
+    },
+    {
+      "name": "Neutralize Poison",
+      "cost": 1,
+      "is_combat_spell": false,
+      "description": "Negates poison effects immediately after occurrence.",
+      "allowed_classes": [
+        "WIZARD"
       ]
     }
   ],
@@ -44,5 +53,5 @@
   "is_in_party": true,
   "is_npc": false,
   "combat_row": 0,
-  "combat_col": 0
+  "combat_col": 2
 }

@@ -1,0 +1,35 @@
+{
+  "name": "Test",
+  "class_type": "PEACE_MAKER",
+  "level": 1,
+  "experience": 0,
+  "created_date": "2026-11-11",
+  "death_date": null,
+  "max_hp": 6,
+  "current_hp": 6,
+  "magic_wounds": 0,
+  "magic_resistance": 2,
+  "detrap_skill": 0,
+  "weapons": [],
+  "equipped_weapon_index": null,
+  "items": [],
+  "spells": [
+    {
+      "name": "Sleep",
+      "cost": 1,
+      "is_combat_spell": true,
+      "description": "Monster falls asleep (monsters get +1 to resist roll).",
+      "allowed_classes": [
+        "PEACE_MAKER"
+      ]
+    }
+  ],
+  "bezants": 0,
+  "gems": 0,
+  "is_alive": true,
+  "is_retired": false,
+  "is_in_party": true,
+  "is_npc": false,
+  "combat_row": 1,
+  "combat_col": 2
+}

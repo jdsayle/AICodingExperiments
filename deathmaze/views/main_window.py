@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParall
 from app.services.character_manager import CharacterManager
 from views.widgets.character_card import CharacterCardWidget
 from views.widgets.empty_slot_widget import EmptySlotWidget
-from views.character_wizard import CharacterCreationWizard
+from views.widgets.create_character_tab import CreateCharacterTab
 
 
 class ActivePartyDashboardGrid(QWidget):
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
         btn_layout = QHBoxLayout()
         self.create_btn = QPushButton("+ Create")
         self.delete_btn = QPushButton("- Delete")
-        self.create_btn.clicked.connect(self._open_creation_wizard)
+        self.create_btn.clicked.connect(self.open_create_character_tab)
         self.delete_btn.clicked.connect(self._delete_selected_character)
 
         btn_layout.addWidget(self.create_btn)
@@ -215,10 +215,7 @@ class MainWindow(QMainWindow):
         self.refresh_character_lists()
 
         # --- STARTUP DISPLAY MODE ---
-        self.showNormal() # <--- Windowed view for app testing. FullScreen used for PROD.
-
-        ### FULLSCREEN TOGGLE UNCOMMENT TO START IN FULLSCREEN W/ ESC to EXIT TO WINDOWED APP
-        # self.showFullScreen()
+        self.showNormal()  # <--- Windowed view for app testing. FullScreen used for PROD.
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Toggles out of fullscreen mode when Escape is pressed."""
@@ -315,10 +312,63 @@ class MainWindow(QMainWindow):
         self.manager.repository.save(char)
         self.refresh_character_lists()
 
-    def _open_creation_wizard(self) -> None:
-        wizard = CharacterCreationWizard(self.manager, parent=self)
-        if wizard.exec():
-            self.refresh_character_lists()
+    # --- CHARACTER CREATION TAB MANAGEMENT ---
+
+    def open_create_character_tab(self) -> None:
+        """Dynamically opens or focuses the Create Character tab in the right-side tab widget."""
+        for index in range(self.tabs.count()):
+            widget = self.tabs.widget(index)
+            if isinstance(widget, CreateCharacterTab):
+                self.tabs.setCurrentIndex(index)
+                return
+
+        create_tab = CreateCharacterTab(self.manager, self)
+        create_tab.character_created.connect(self.handle_character_created)
+        create_tab.cancelled.connect(self.close_create_character_tab)
+
+        tab_index = self.tabs.addTab(create_tab, "+ Create Character")
+        self.tabs.setCurrentIndex(tab_index)
+
+    def close_create_character_tab(self) -> None:
+        """Closes and removes the Create Character tab, restoring focus to the Active Party Dashboard."""
+        for index in range(self.tabs.count()):
+            widget = self.tabs.widget(index)
+            if isinstance(widget, CreateCharacterTab):
+                self.tabs.removeTab(index)
+                widget.deleteLater()
+                break
+
+        self.tabs.setCurrentIndex(0)
+
+    def handle_character_created(self, char_name: str) -> None:
+        """Routes newly saved characters to Active Party (< 6 PCs) or Tavern/Town pool, then refreshes UI."""
+        char = self.manager.get_character(char_name)
+        if not char:
+            self.close_create_character_tab()
+            return
+
+        all_chars = self.manager.list_characters()
+        active_pcs = [c for c in all_chars if c.is_in_party and not c.is_npc and c.is_alive and not c.is_retired]
+
+        if len(active_pcs) < 6 and not char.is_npc:
+            char.is_in_party = True
+            self._assign_first_available_grid_slot(char, all_chars)
+        else:
+            char.is_in_party = False
+
+        self.manager.repository.save(char)
+        self.close_create_character_tab()
+        self.refresh_character_lists()
+
+    def _assign_first_available_grid_slot(self, char, all_chars) -> None:
+        """Helper to place a newly recruited PC into an empty grid slot (3x3)."""
+        occupied = {(c.combat_row, c.combat_col) for c in all_chars if c.is_in_party and c.name != char.name}
+        for r in range(3):
+            for c in range(3):
+                if (r, c) not in occupied:
+                    char.combat_row = r
+                    char.combat_col = c
+                    return
 
     def _delete_selected_character(self) -> None:
         selected_item = self.active_list.currentItem() or self.tavern_list.currentItem()
@@ -366,21 +416,28 @@ class MainWindow(QMainWindow):
         if not char:
             return
 
-        weapons_str = ", ".join(w.name.name.replace('_', ' ').title() for w in char.weapons) or "None"
+        formatted_weapons = []
+        for idx, w in enumerate(char.weapons):
+            w_name = w.name.name.replace('_', ' ').title() if hasattr(w.name, 'name') else str(w.name)
+            bonus_str = f" (+{w.skill_bonus})" if getattr(w, 'skill_bonus', 0) > 0 else ""
+            equipped_str = " [Equipped]" if getattr(char, 'equipped_weapon_index', None) == idx else ""
+            formatted_weapons.append(f"{w_name}{bonus_str}{equipped_str}")
+
+        weapons_str = ", ".join(formatted_weapons) if formatted_weapons else "None"
         items_str = ", ".join(i.name for i in char.items) or "None"
-        spells_str = ", ".join(s.name for s in char.spells) or "None"
+        spells_str = ", ".join(s.name.replace('_', ' ').title() if hasattr(s, 'name') else str(s) for s in char.spells) or "None"
         location = "Active Party" if char.is_in_party else "Tavern / Town Stable"
 
         details = f"""
         <h2>{char.name} ({char.class_type.name.replace('_', ' ').title()})</h2>
         <p><b>Location:</b> {location} | <b>Combat Row:</b> Row {char.combat_row + 1}, Col {char.combat_col + 1}</p>
-        <p><b>Level:</b> {char.level} | <b>Created:</b> {char.created_date}</p>
+        <p><b>Level:</b> {char.level} | <b>XP:</b> {char.experience} | <b>Created:</b> {char.created_date}</p>
         <hr>
         <p><b>Hit Points:</b> {char.effective_hp} / {char.max_hp} (Magic Wounds: {char.magic_wounds})</p>
         <p><b>Magic Resistance:</b> {char.magic_resistance} | <b>Detrap Skill:</b> {char.detrap_skill}</p>
         <p><b>Bezants:</b> {char.bezants} | <b>Gems:</b> {char.gems}</p>
         <hr>
-        <p><b>Weapons:</b> {weapons_str}</p>
+        <p><b>Weapons & Skill Bonuses:</b> {weapons_str}</p>
         <p><b>Inventory Items:</b> {items_str}</p>
         <p><b>Spells:</b> {spells_str}</p>
         """

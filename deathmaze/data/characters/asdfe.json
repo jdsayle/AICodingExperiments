@@ -1,30 +1,30 @@
 {
-  "name": "test12",
-  "class_type": "THIEF",
+  "name": "asdfe",
+  "class_type": "HERO",
   "level": 1,
   "experience": 0,
   "created_date": "2026-11-11",
   "death_date": null,
-  "max_hp": 6,
-  "current_hp": 6,
+  "max_hp": 8,
+  "current_hp": 8,
   "magic_wounds": 0,
   "magic_resistance": 1,
-  "detrap_skill": 2,
+  "detrap_skill": 0,
   "weapons": [
     {
-      "name": "AXE",
+      "name": "HAMMER",
       "is_magical": false,
       "combat_bonus": 0,
-      "skill_bonus": 0
+      "skill_bonus": 1
     },
     {
-      "name": "DAGGER",
+      "name": "BOW_AND_ARROWS",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
     }
   ],
-  "equipped_weapon_index": 0,
+  "equipped_weapon_index": 1,
   "items": [],
   "spells": [],
   "bezants": 0,
@@ -34,5 +34,5 @@
   "is_in_party": true,
   "is_npc": false,
   "combat_row": 0,
-  "combat_col": 0
+  "combat_col": 1
 }

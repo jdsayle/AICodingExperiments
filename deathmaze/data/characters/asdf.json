@@ -1,0 +1,38 @@
+{
+  "name": "asdf",
+  "class_type": "HERO",
+  "level": 1,
+  "experience": 0,
+  "created_date": "2026-11-11",
+  "death_date": null,
+  "max_hp": 8,
+  "current_hp": 8,
+  "magic_wounds": 0,
+  "magic_resistance": 1,
+  "detrap_skill": 0,
+  "weapons": [
+    {
+      "name": "AXE",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 1
+    },
+    {
+      "name": "BOW_AND_ARROWS",
+      "is_magical": false,
+      "combat_bonus": 0,
+      "skill_bonus": 0
+    }
+  ],
+  "equipped_weapon_index": 0,
+  "items": [],
+  "spells": [],
+  "bezants": 0,
+  "gems": 0,
+  "is_alive": true,
+  "is_retired": false,
+  "is_in_party": true,
+  "is_npc": false,
+  "combat_row": 1,
+  "combat_col": 0
+}
