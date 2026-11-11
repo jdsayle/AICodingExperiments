@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTabWidget, QScrollArea, QLabel, QMessageBox, QGridLayout
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeyEvent
 from app.services.character_manager import CharacterManager
 from views.character_wizard import CharacterCreationWizard
 from views.widgets.character_card import CharacterCardWidget
@@ -17,6 +18,7 @@ class ActivePartyDashboardGrid(QWidget):
         self.main_window = main_window
         self.setAcceptDrops(True)
         self.grid = QGridLayout(self)
+        self.grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)  # Prevent layout from stretching/compressing rows
 
     def dragEnterEvent(self, event) -> None:
         if event.mimeData().hasText():
@@ -36,7 +38,6 @@ class ActivePartyDashboardGrid(QWidget):
                 item = self.grid.itemAtPosition(row, col)
                 if item and item.widget():
                     widget = item.widget()
-                    # Map position to widget coordinates or check geometry bounding box
                     widget_pos = widget.mapFrom(self, pos)
                     if widget.rect().contains(widget_pos):
                         if isinstance(widget, CharacterCardWidget):
@@ -50,6 +51,7 @@ class ActivePartyDashboardGrid(QWidget):
                             event.acceptProposedAction()
                             return
         event.ignore()
+
 
 class MainWindow(QMainWindow):
     """Main window integrating split ACTIVE / TAVERN sidebar and right tabbed workspace."""
@@ -127,8 +129,20 @@ class MainWindow(QMainWindow):
 
         self.refresh_character_lists()
 
+        # --- STARTUP DISPLAY MODE ---
+        self.showFullScreen()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Toggles out of fullscreen mode when Escape is pressed."""
+        if event.key() == Qt.Key_Escape:
+            if self.isFullScreen():
+                self.showNormal()
+                event.accept()
+                return
+        super().keyPressEvent(event)
+
     def refresh_character_lists(self) -> None:
-        """Reloads active party and tavern lists, rendering the exact 3x3 tactical grid."""
+        """Reloads active party and tavern lists, rendering the 3x3 tactical grid."""
         self.active_list.clear()
         self.tavern_list.clear()
         characters = self.manager.list_characters()
@@ -144,13 +158,11 @@ class MainWindow(QMainWindow):
             else:
                 self.tavern_list.addItem(item)
 
-        # Clear existing widgets from 3x3 grid
         while self.dashboard_grid.count():
             item = self.dashboard_grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        # Map active characters to their specific (combat_row, combat_col) slots, or auto-assign if unassigned
         occupied_slots = {}
         unassigned = []
 
@@ -164,7 +176,6 @@ class MainWindow(QMainWindow):
             else:
                 unassigned.append(char)
 
-        # Place unassigned characters into the next available open slots
         for char in unassigned:
             placed = False
             for r in range(3):
@@ -178,7 +189,6 @@ class MainWindow(QMainWindow):
                 if placed:
                     break
 
-        # Populate the strict 3x3 grid with CharacterCards or EmptySlotWidgets
         for row in range(3):
             for col in range(3):
                 if (row, col) in occupied_slots:
@@ -199,7 +209,6 @@ class MainWindow(QMainWindow):
         if not char_a or not char_b:
             return
 
-        # Swap their tactical coordinates
         temp_row, temp_col = char_a.combat_row, char_a.combat_col
         char_a.combat_row, char_a.combat_col = char_b.combat_row, char_b.combat_col
         char_b.combat_row, char_b.combat_col = temp_row, temp_col

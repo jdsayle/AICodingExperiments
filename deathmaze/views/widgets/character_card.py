@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QProgressBar, QGroupBox, QApplication
+    QProgressBar, QGroupBox, QApplication, QSizePolicy
 )
 from PySide6.QtCore import Signal, QSize, QMimeData, Qt, QPoint
 from PySide6.QtGui import QDrag
 from app.models.character import Character
+
 
 
 class CharacterCardWidget(QWidget):
@@ -17,6 +18,10 @@ class CharacterCardWidget(QWidget):
         self._drag_start_position = QPoint()
 
         self.setFixedSize(QSize(375, 260))
+        self.setMinimumSize(375, 260)
+        self.setMaximumSize(375, 260)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setAcceptDrops(False)
         self.setAcceptDrops(False)
 
         layout = QVBoxLayout(self)

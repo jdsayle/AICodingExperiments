@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QLabel, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QLabel, QWidget, QVBoxLayout, QSizePolicy
 from PySide6.QtCore import Qt, QSize
 
 
@@ -9,7 +9,12 @@ class EmptySlotWidget(QWidget):
         super().__init__(parent)
         self.target_row = row
         self.target_col = col
-        self.setFixedSize(QSize(300, 200))
+        
+        # Enforce strict fixed sizing and prevent layout compression/shrinkage
+        self.setFixedSize(QSize(375, 260))
+        self.setMinimumSize(375, 260)
+        self.setMaximumSize(375, 260)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.setAcceptDrops(False)
 
         layout = QVBoxLayout(self)
