@@ -74,7 +74,11 @@ class CharacterSerializer:
             gems=data.get("gems", 0),
             is_alive=data.get("is_alive", True),
             is_retired=data.get("is_retired", False),
-            is_in_party=data.get("is_in_party", False)
+            is_in_party=data.get("is_in_party", False),
+            # --- RESTORED FIELDS FOR TACTICAL GRID PERSISTENCE ---
+            is_npc=data.get("is_npc", False),
+            combat_row=data.get("combat_row", 0),
+            combat_col=data.get("combat_col", 0)
         )
 
     @classmethod

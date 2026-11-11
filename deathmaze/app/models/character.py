@@ -72,10 +72,13 @@ class Character:
     bezants: int = 0
     gems: int = 0
     
-    # Status Flags
+    # Status Flags & Tactical Placement
     is_alive: bool = True
     is_retired: bool = False
-    is_in_party: bool = False  # True = ACTIVE section, False = TAVERN/TOWN section
+    is_in_party: bool = False  # True = ACTIVE party, False = TAVERN/TOWN
+    is_npc: bool = False       # True = Charmed Monster / NPC (Max 3 in party)
+    combat_row: int = 0        # 0 = Front Row, 1 = Back Row, 2 = NPC Row
+    combat_col: int = 0        # 0, 1, or 2 (Column within the row)
 
     @property
     def effective_hp(self) -> int:
@@ -87,3 +90,4 @@ class Character:
             ClassType.WIZARD, ClassType.WITCH_HUNTER, 
             ClassType.HEALER, ClassType.PEACE_MAKER
         }
+
