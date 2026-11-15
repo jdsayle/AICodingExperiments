@@ -1,0 +1,44 @@
+{
+  "name": "qeraasdf asd",
+  "class_type": "PEACE_MAKER",
+  "level": 1,
+  "experience": 0,
+  "created_date": "2026-11-14",
+  "death_date": null,
+  "max_hp": 6,
+  "current_hp": 6,
+  "magic_wounds": 0,
+  "magic_resistance": 1,
+  "detrap_skill": 0,
+  "weapons": [],
+  "equipped_weapon_index": null,
+  "items": [],
+  "spells": [
+    {
+      "name": "Fair Fight",
+      "cost": 2,
+      "is_combat_spell": true,
+      "description": "Disables monster special abilities and balances numbers.",
+      "allowed_classes": [
+        "PEACE_MAKER"
+      ]
+    },
+    {
+      "name": "Hesitate",
+      "cost": 2,
+      "is_combat_spell": true,
+      "description": "Allows party to cast heal spells and drink potions right before combat.",
+      "allowed_classes": [
+        "PEACE_MAKER"
+      ]
+    }
+  ],
+  "bezants": 0,
+  "gems": 0,
+  "is_alive": true,
+  "is_retired": false,
+  "is_in_party": true,
+  "is_npc": false,
+  "combat_row": 1,
+  "combat_col": 2
+}

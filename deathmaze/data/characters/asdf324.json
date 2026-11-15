@@ -6,8 +6,8 @@
   "created_date": "2026-11-14",
   "death_date": null,
   "max_hp": 7,
-  "current_hp": 7,
-  "magic_wounds": 0,
+  "current_hp": 2,
+  "magic_wounds": 2,
   "magic_resistance": 2,
   "detrap_skill": 0,
   "weapons": [
@@ -24,7 +24,7 @@
       "skill_bonus": 0
     }
   ],
-  "equipped_weapon_index": 1,
+  "equipped_weapon_index": 0,
   "items": [],
   "spells": [
     {
@@ -46,12 +46,12 @@
       ]
     }
   ],
-  "bezants": 0,
-  "gems": 0,
+  "bezants": 300,
+  "gems": 20,
   "is_alive": true,
   "is_retired": false,
-  "is_in_party": false,
+  "is_in_party": true,
   "is_npc": false,
   "combat_row": 0,
-  "combat_col": 0
+  "combat_col": 2
 }

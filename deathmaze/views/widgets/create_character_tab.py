@@ -392,10 +392,6 @@ class CreateCharacterTab(QWidget):
                 self.weapon_selector.set_class(class_type)
                 
                 for chk in self.weapon_selector.findChildren(QCheckBox):
-                    try:
-                        chk.toggled.disconnect(self._on_weapon_selection_changed)
-                    except RuntimeError:
-                        pass
                     chk.toggled.connect(self._on_weapon_selection_changed)
                 
                 self._on_weapon_selection_changed()

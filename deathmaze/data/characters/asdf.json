@@ -6,7 +6,7 @@
   "created_date": "2026-11-11",
   "death_date": null,
   "max_hp": 8,
-  "current_hp": 8,
+  "current_hp": 5,
   "magic_wounds": 0,
   "magic_resistance": 1,
   "detrap_skill": 0,
@@ -33,6 +33,6 @@
   "is_retired": false,
   "is_in_party": true,
   "is_npc": false,
-  "combat_row": 1,
+  "combat_row": 0,
   "combat_col": 1
 }

@@ -31,25 +31,29 @@ def test_main_window_initialization(qtbot, manager):
     qtbot.addWidget(window)
     window.show()
 
-    assert window.char_list.count() == 0
+    assert window.active_list.count() == 0
+    assert window.tavern_list.count() == 0
     assert window.tabs.count() == 2
 
 
 def test_main_window_character_deletion_flow(qtbot, manager, monkeypatch):
     """Verify character deletion workflow and QMessageBox confirmation popup."""
     manager.create_character("Conan", ClassType.HERO)
+    manager.add_to_party("Conan")  # Ensure Conan is in the active party
+    
     window = MainWindow(manager)
     qtbot.addWidget(window)
     window.show()
 
-    assert window.char_list.count() == 1
+    # Conan will now be in the active party list upon refresh
+    assert window.active_list.count() == 1
 
-    # Select character in sidebar
-    window.char_list.setCurrentRow(0)
+    # Select character in active list
+    window.active_list.setCurrentRow(0)
 
     # Monkeypatch QMessageBox to auto-confirm deletion
     monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.Yes)
 
     window._delete_selected_character()
-    assert window.char_list.count() == 0
+    assert window.active_list.count() == 0
     assert manager.get_character("Conan") is None

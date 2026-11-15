@@ -7,7 +7,7 @@
   "death_date": null,
   "max_hp": 4,
   "current_hp": 4,
-  "magic_wounds": 0,
+  "magic_wounds": 3,
   "magic_resistance": 3,
   "detrap_skill": 0,
   "weapons": [],
@@ -24,12 +24,12 @@
       ]
     }
   ],
-  "bezants": 0,
+  "bezants": 7,
   "gems": 0,
   "is_alive": true,
   "is_retired": false,
   "is_in_party": true,
   "is_npc": false,
-  "combat_row": 1,
+  "combat_row": 0,
   "combat_col": 0
 }

@@ -8,7 +8,8 @@ from app.services.character_manager import CharacterManager
 from views.widgets.character_card import CharacterCardWidget
 from views.widgets.empty_slot_widget import EmptySlotWidget
 from views.widgets.create_character_tab import CreateCharacterTab
-
+from views.widgets.character_inspector import CharacterInspectorWidget
+from views.widgets.grid_dashboard import ActivePartyDashboardGrid
 
 class ActivePartyDashboardGrid(QWidget):
     """Grid container managing drops, dual-card swaps, and 275ms sliding animations across the 3x3 tactical layout."""
@@ -189,6 +190,7 @@ class MainWindow(QMainWindow):
         # --- RIGHT TABBED WORKSPACE ---
         self.tabs = QTabWidget()
 
+       
         # Tab 1: Active Party Dashboard (3x3 Tactical Grid)
         self.dashboard_tab = QWidget()
         self.dashboard_scroll = QScrollArea()
@@ -201,13 +203,12 @@ class MainWindow(QMainWindow):
         dash_layout = QVBoxLayout(self.dashboard_tab)
         dash_layout.addWidget(self.dashboard_scroll)
         self.tabs.addTab(self.dashboard_tab, "Active Party Dashboard")
-
+       
         # Tab 2: Detailed Character Inspector
         self.inspector_tab = QWidget()
         self.inspector_layout = QVBoxLayout(self.inspector_tab)
-        self.inspector_label = QLabel("<i>Select a character to view detailed sheet.</i>")
-        self.inspector_label.setWordWrap(True)
-        self.inspector_layout.addWidget(self.inspector_label)
+        self.inspector_widget = CharacterInspectorWidget(self.manager)
+        self.inspector_layout.addWidget(self.inspector_widget)
         self.tabs.addTab(self.inspector_tab, "Detailed Inspector")
 
         main_layout.addWidget(self.tabs)
@@ -314,6 +315,8 @@ class MainWindow(QMainWindow):
 
     # --- CHARACTER CREATION TAB MANAGEMENT ---
 
+# --- CHARACTER CREATION TAB MANAGEMENT ---
+
     def open_create_character_tab(self) -> None:
         """Dynamically opens or focuses the Create Character tab in the right-side tab widget."""
         for index in range(self.tabs.count()):
@@ -412,9 +415,14 @@ class MainWindow(QMainWindow):
         self._inspect_character_by_name(char_name)
 
     def _inspect_character_by_name(self, name: str) -> None:
+        """Populates Detailed Character Inspector widget with full stats and switches tab."""
         char = self.manager.get_character(name)
         if not char:
             return
+
+        # Pass the character to our interactive CharacterInspectorWidget
+        self.inspector_widget.set_character(char)
+        self.tabs.setCurrentIndex(1)  # Switch to Detailed Inspector tab
 
         formatted_weapons = []
         for idx, w in enumerate(char.weapons):
@@ -441,5 +449,4 @@ class MainWindow(QMainWindow):
         <p><b>Inventory Items:</b> {items_str}</p>
         <p><b>Spells:</b> {spells_str}</p>
         """
-        self.inspector_label.setText(details)
         self.tabs.setCurrentIndex(1)
