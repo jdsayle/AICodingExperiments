@@ -30,7 +30,8 @@
       "name": "Neutralize Poison",
       "item_type": 5,
       "effect": "Cancels Poison Effects",
-      "uses_remaining": 1
+      "uses_remaining": 1,
+      "used_this_game": false
     }
   ],
   "spells": [

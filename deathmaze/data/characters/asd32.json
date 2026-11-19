@@ -7,7 +7,7 @@
   "death_date": null,
   "max_hp": 4,
   "current_hp": 4,
-  "magic_wounds": 3,
+  "magic_wounds": 0,
   "magic_resistance": 3,
   "detrap_skill": 0,
   "weapons": [],

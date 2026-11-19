@@ -30,7 +30,8 @@
       "name": "Healing",
       "item_type": 4,
       "effect": "Heals 1d6",
-      "uses_remaining": 1
+      "uses_remaining": 1,
+      "used_this_game": false
     }
   ],
   "spells": [],

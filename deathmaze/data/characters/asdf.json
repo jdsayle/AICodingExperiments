@@ -6,7 +6,7 @@
   "created_date": "2026-11-11",
   "death_date": null,
   "max_hp": 8,
-  "current_hp": 5,
+  "current_hp": 8,
   "magic_wounds": 0,
   "magic_resistance": 1,
   "detrap_skill": 0,
@@ -30,7 +30,8 @@
       "name": "Resistance +2",
       "item_type": 1,
       "effect": "+2 to Magic Resistance",
-      "uses_remaining": null
+      "uses_remaining": null,
+      "used_this_game": false
     }
   ],
   "spells": [],
