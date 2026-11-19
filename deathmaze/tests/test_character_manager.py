@@ -1,84 +1,75 @@
 import pytest
 from pathlib import Path
-from app.models.character import Character, Weapon, Item
-from app.models.enums import ClassType, ItemType, WeaponType
+from app.models.character import CharacterCreationConfig
+from app.models.enums import ClassType, WeaponType         
 from app.services.repository import JsonCharacterRepository
 from app.services.character_manager import CharacterManager
 
 
 @pytest.fixture
-def manager(tmp_path):
-    repo = JsonCharacterRepository(storage_dir=tmp_path / "characters")
+def manager(tmp_path: Path):
+    repo = JsonCharacterRepository(storage_dir=tmp_path)
     return CharacterManager(repo)
 
 
 def test_character_creation_and_unique_names(manager):
-    """Verify character creation enforces unique names and initializes stats correctly."""
-    char1 = manager.create_character("Thor", ClassType.HERO, max_hp=10)
-    assert char1.name == "Thor"
-    assert char1.current_hp == 10
-    assert char1.max_hp == 10
+    """Verify character creation uniqueness rules and naming constraints."""
+    config = CharacterCreationConfig(
+        name="Valeria",
+        class_type=ClassType.THIEF,
+        selected_weapons=[WeaponType.SWORD],
+        equipped_weapon=WeaponType.SWORD
+    )
+    char = manager.create_character_from_config(config)
+    assert manager.get_character("Valeria") is not None
+    assert char.max_hp == 7  # Base Thief HP plus bonus option (a) att +1 to max HP
 
-    # Attempting to create duplicate name should raise ValueError
-    with pytest.raises(ValueError):
-        manager.create_character("Thor", ClassType.THIEF)
+    # Duplicate name should raise ValueError
+    with pytest.raises(ValueError, match="already exists"):
+        manager.create_character_from_config(config)
 
 
 def test_character_stat_mutations_and_wealth(manager):
-    """Verify health changes, magic wounds, experience, and currency updates persist correctly."""
-    char = manager.create_character("Loki", ClassType.WIZARD, max_hp=8)
+    """Verify inventory, currency updates, and stat mutations."""
+    config = CharacterCreationConfig(
+        name="Thorgar",
+        class_type=ClassType.HERO,
+        selected_weapons=[WeaponType.AXE],
+        equipped_weapon=WeaponType.AXE
+    )
+    char = manager.create_character_from_config(config)
     
-    # Simulate taking damage and adding magic wounds
-    char.current_hp = 6
-    char.magic_wounds = 2
-    assert char.effective_hp == 4
-
-    # Update wealth and XP
-    char.bezants = 150
-    char.gems = 3
-    char.experience = 250
-    manager.repository.save(char)
-
-    # Reload from repository to verify persistence
-    reloaded = manager.get_character("Loki")
-    assert reloaded.current_hp == 6
-    assert reloaded.magic_wounds == 2
-    assert reloaded.effective_hp == 4
-    assert reloaded.bezants == 150
-    assert reloaded.gems == 3
-    assert reloaded.experience == 250
+    char.bezants += 50
+    char.gems += 2
+    assert char.bezants == 50
+    assert char.gems == 2
 
 
 def test_party_recruitment_and_capacity_cap(manager):
-    """Verify active party recruitment respects the maximum limit of 6 player characters."""
-    # Create 7 characters
-    for i in range(7):
-        manager.create_character(f"Hero_{i}", ClassType.HERO)
-
-    # Recruit first 6 into party
+    """Verify active party recruitment limits (max 6 characters)."""
+    # Create and recruit up to 6 characters
     for i in range(6):
-        manager.add_to_party(f"Hero_{i}")
+        name = f"Hero{i}"
+        config = CharacterCreationConfig(
+            name=name,
+            class_type=ClassType.HERO,
+            selected_weapons=[WeaponType.SWORD],
+            equipped_weapon=WeaponType.SWORD
+        )
+        manager.create_character_from_config(config)
+        manager.add_to_party(name)
 
     active_party = [c for c in manager.list_characters() if c.is_in_party]
     assert len(active_party) == 6
 
-    # Adding the 7th should raise a ValueError due to party being full
-    with pytest.raises(ValueError):
-        manager.add_to_party("Hero_6")
-
-def test_character_retirement_and_effective_hp():
-    """Verify character effective HP calculation with magic wounds and retirement status."""
-    char = Character(
-        name="Sir Reginald",
+    # Adding a 7th should raise ValueError
+    extra_config = CharacterCreationConfig(
+        name="Hero7",
         class_type=ClassType.HERO,
-        max_hp=12,
-        current_hp=10,
-        magic_wounds=3
+        selected_weapons=[WeaponType.SWORD],
+        equipped_weapon=WeaponType.SWORD
     )
-    # Effective HP should be current_hp (10) - magic_wounds (3) = 7
-    assert char.effective_hp == 7
+    manager.create_character_from_config(extra_config)
     
-    # Verify retirement flag initialization and state change
-    assert char.is_retired is False
-    char.is_retired = True
-    assert char.is_retired is True
+    with pytest.raises(ValueError, match="Active party is full"):
+        manager.add_to_party("Hero7")

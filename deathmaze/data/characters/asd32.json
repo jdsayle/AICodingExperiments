@@ -24,8 +24,8 @@
       ]
     }
   ],
-  "bezants": 7,
-  "gems": 0,
+  "bezants": 400,
+  "gems": 444,
   "is_alive": true,
   "is_retired": false,
   "is_in_party": true,

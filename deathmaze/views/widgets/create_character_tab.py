@@ -5,9 +5,10 @@ from PySide6.QtWidgets import (
     QScrollArea, QCheckBox, QListView
 )
 from PySide6.QtCore import Signal, Qt
-from app.models.character import Character, Weapon
+from app.models.character import CharacterCreationConfig
 from app.models.enums import ClassType, WeaponType
 from app.services.character_manager import CharacterManager
+from app.services.rules_engine import RulesEngine
 from views.widgets.weapon_selector import WeaponSelectorWidget
 from views.widgets.spell_selector import SpellSelectorWidget
 from views.widgets.starting_bonus import StartingBonusWidget
@@ -362,14 +363,8 @@ class CreateCharacterTab(QWidget):
             # Step 1 -> Step 2
             class_type = self.class_combo.currentData()
             
-            base_stats = {
-                ClassType.HERO: {"hp": 8, "mr": 1, "detrap": 0},
-                ClassType.THIEF: {"hp": 6, "mr": 1, "detrap": 1},
-                ClassType.WIZARD: {"hp": 4, "mr": 2, "detrap": 0},
-                ClassType.WITCH_HUNTER: {"hp": 7, "mr": 2, "detrap": 0},
-                ClassType.HEALER: {"hp": 4, "mr": 1, "detrap": 0},
-                ClassType.PEACE_MAKER: {"hp": 6, "mr": 1, "detrap": 0},
-            }[class_type]
+            # Pull base stats from centralized RulesEngine
+            base_stats = RulesEngine.BASE_STATS.get(class_type, {"hp": 6, "mr": 1, "detrap": 0})
 
             self.stats_label.setText(
                 f"<b>Base Stats:</b> HP: {base_stats['hp']} | "
@@ -534,94 +529,46 @@ class CreateCharacterTab(QWidget):
             QMessageBox.warning(self, "Name Conflict", f"A character named '{name}' already exists.")
             return
 
-        base_stats = {
-            ClassType.HERO: {"hp": 8, "mr": 1, "detrap": 0},
-            ClassType.THIEF: {"hp": 6, "mr": 1, "detrap": 1},
-            ClassType.WIZARD: {"hp": 4, "mr": 2, "detrap": 0},
-            ClassType.WITCH_HUNTER: {"hp": 7, "mr": 2, "detrap": 0},
-            ClassType.HEALER: {"hp": 4, "mr": 1, "detrap": 0},
-            ClassType.PEACE_MAKER: {"hp": 6, "mr": 1, "detrap": 0},
-        }[class_type]
+        # 1. Gather selected weapons from widget
+        selected_weapons = []
+        if class_type == ClassType.HEALER:
+            selected_weapons = [WeaponType.DAGGER]
+        elif class_type != ClassType.PEACE_MAKER:
+            selected_weapons = self.weapon_selector.get_selected_weapons()
 
-        char = Character(
+        # 2. Determine equipped weapon
+        equipped_weapon = None
+        if selected_weapons and self.equipped_combo.isVisible():
+            equipped_weapon = self.equipped_combo.currentData()
+
+        # 3. Gather spells
+        primary_spell = self.spell_selector_1.get_selected_spell() if self._is_magic_user() else None
+        
+        secondary_spell = None
+        bonus = self.bonus_widget.get_selected_bonus()
+        if self._is_magic_user() and (bonus == "d" or (class_type == ClassType.PEACE_MAKER and bonus == "c")):
+            secondary_spell = self.spell_selector_2.get_selected_spell()
+
+        # 4. Gather Option B weapon target if applicable
+        bonus_weapon_target = None
+        if bonus == "b" and len(selected_weapons) > 1:
+            bonus_weapon_target = self.weapon_combo_bonus_b.currentData()
+
+        # 5. Build clean CharacterCreationConfig DTO payload
+        config = CharacterCreationConfig(
             name=name,
             class_type=class_type,
-            level=1,
-            experience=0,
-            max_hp=base_stats["hp"],
-            current_hp=base_stats["hp"],
-            magic_resistance=base_stats["mr"],
-            detrap_skill=base_stats["detrap"],
-            created_date=datetime.now().strftime("%Y-%m-%d")
+            selected_weapons=selected_weapons,
+            equipped_weapon=equipped_weapon,
+            primary_spell=primary_spell,
+            secondary_spell=secondary_spell,
+            bonus_option=bonus,
+            bonus_weapon_target=bonus_weapon_target
         )
 
-        if class_type == ClassType.PEACE_MAKER:
-            pass
-        elif class_type == ClassType.HEALER:
-            char.weapons.append(Weapon(name=WeaponType.DAGGER))
-            char.equipped_weapon_index = 0
-        else:
-            selected_weapons = self.weapon_selector.get_selected_weapons()
-            for w_type in selected_weapons:
-                char.weapons.append(Weapon(name=w_type))
-            
-            if char.weapons:
-                equipped_name = self.equipped_combo.currentText()
-                equipped_idx = 0
-                for idx, w in enumerate(char.weapons):
-                    w_display_name = w.name.name.replace('_', ' ').title()
-                    if w_display_name == equipped_name or w.name.name == equipped_name:
-                        equipped_idx = idx
-                        break
-                char.equipped_weapon_index = equipped_idx
-
-        bonus = self.bonus_widget.get_selected_bonus()
-        if bonus == "a":
-            char.max_hp += 1
-            char.current_hp += 1
-        elif bonus == "b":
-            if class_type == ClassType.PEACE_MAKER:
-                char.magic_resistance += 1
-            elif len(char.weapons) == 1:
-                # Automatically apply to the single weapon
-                char.weapons[0].skill_bonus += 1
-            elif len(char.weapons) > 1:
-                # Apply to the specifically chosen weapon from Option B dropdown
-                chosen_w_type = self.weapon_combo_bonus_b.currentData()
-                matched = False
-                for w in char.weapons:
-                    if w.name == chosen_w_type:
-                        w.skill_bonus += 1
-                        matched = True
-                        break
-                if not matched and char.weapons:
-                    char.weapons[0].skill_bonus += 1
-            elif char.weapons:
-                char.weapons[0].skill_bonus += 1
-        elif bonus == "c":
-            if class_type in {ClassType.HERO, ClassType.WITCH_HUNTER, ClassType.HEALER}:
-                char.magic_resistance += 1
-            elif class_type == ClassType.THIEF:
-                char.detrap_skill += 1
-            elif class_type == ClassType.WIZARD:
-                char.magic_resistance += 1
-            elif class_type == ClassType.PEACE_MAKER:
-                spell2 = self.spell_selector_2.get_selected_spell()
-                if spell2 and spell2 not in char.spells:
-                    char.spells.append(spell2)
-        elif bonus == "d":
-            if char.is_magic_user:
-                spell2 = self.spell_selector_2.get_selected_spell()
-                if spell2 and spell2 not in char.spells:
-                    char.spells.append(spell2)
-
-        if char.is_magic_user:
-            spell1 = self.spell_selector_1.get_selected_spell()
-            if spell1 and spell1 not in char.spells:
-                char.spells.append(spell1)
-
+        # 6. Delegate entirely to CharacterManager (which utilizes RulesEngine)
         try:
-            self.manager.repository.save(char)
+            char = self.manager.create_character_from_config(config)
             self.character_created.emit(char.name)
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Could not save character: {str(e)}")

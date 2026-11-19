@@ -69,37 +69,45 @@ class CharacterInspectorWidget(QWidget):
         stats_group = QGroupBox("Combat Stats & Wealth")
         stats_grid = QGridLayout(stats_group)
 
+        row_idx = 0
+
         # HP Stepper
-        stats_grid.addWidget(QLabel("Current HP:"), 0, 0)
+        stats_grid.addWidget(QLabel("Current HP:"), row_idx, 0)
         self.hp_spin = QSpinBox()
         self.hp_spin.setRange(-10, char.max_hp)
         self.hp_spin.setValue(char.current_hp)
         self.hp_spin.valueChanged.connect(self._on_hp_changed)
-        stats_grid.addWidget(self.hp_spin, 0, 1)
+        stats_grid.addWidget(self.hp_spin, row_idx, 1)
+        row_idx += 1
 
-        # Magic Wounds Stepper
-        stats_grid.addWidget(QLabel("Magic Wounds:"), 1, 0)
-        self.mw_spin = QSpinBox()
-        self.mw_spin.setRange(0, 50)
-        self.mw_spin.setValue(char.magic_wounds)
-        self.mw_spin.valueChanged.connect(self._on_mw_changed)
-        stats_grid.addWidget(self.mw_spin, 1, 1)
+        # Magic Wounds Stepper (ONLY for Magic Users)
+        if char.is_magic_user:
+            stats_grid.addWidget(QLabel("Magic Wounds:"), row_idx, 0)
+            self.mw_spin = QSpinBox()
+            self.mw_spin.setRange(0, 50)
+            self.mw_spin.setValue(char.magic_wounds)
+            self.mw_spin.valueChanged.connect(self._on_mw_changed)
+            stats_grid.addWidget(self.mw_spin, row_idx, 1)
+            row_idx += 1
+        else:
+            self.mw_spin = None
 
         # Bezants Stepper
-        stats_grid.addWidget(QLabel("Bezants (Coins):"), 2, 0)
+        stats_grid.addWidget(QLabel("Bezants (Coins):"), row_idx, 0)
         self.bezants_spin = QSpinBox()
         self.bezants_spin.setRange(0, 99999)
         self.bezants_spin.setValue(char.bezants)
         self.bezants_spin.valueChanged.connect(self._on_bezants_changed)
-        stats_grid.addWidget(self.bezants_spin, 2, 1)
+        stats_grid.addWidget(self.bezants_spin, row_idx, 1)
+        row_idx += 1
 
         # Gems Stepper
-        stats_grid.addWidget(QLabel("Gems:"), 3, 0)
+        stats_grid.addWidget(QLabel("Gems:"), row_idx, 0)
         self.gems_spin = QSpinBox()
         self.gems_spin.setRange(0, 999)
         self.gems_spin.setValue(char.gems)
         self.gems_spin.valueChanged.connect(self._on_gems_changed)
-        stats_grid.addWidget(self.gems_spin, 3, 1)
+        stats_grid.addWidget(self.gems_spin, row_idx, 1)
 
         self.container_layout.addWidget(stats_group)
         self.container_layout.addWidget(self._create_divider())
@@ -165,7 +173,7 @@ class CharacterInspectorWidget(QWidget):
             self._save_changes()
 
     def _on_mw_changed(self, value: int) -> None:
-        if self.current_character:
+        if self.current_character and self.current_character.is_magic_user:
             self.current_character.magic_wounds = value
             self._save_changes()
 
@@ -190,7 +198,6 @@ class CharacterInspectorWidget(QWidget):
             return
         
         try:
-            # Check rules engine before casting
             if RulesEngine.can_cast_spell(self.current_character, spell, target_is_undead=False):
                 RulesEngine.cast_spell(self.current_character, spell, target_is_undead=False)
                 self._save_changes()

@@ -46,6 +46,16 @@ class SpellcasterMixin:
     def is_magic_user(self) -> bool:
         return True
 
+@dataclass
+class CharacterCreationConfig:
+    name: str
+    class_type: ClassType
+    selected_weapons: List[WeaponType] = field(default_factory=list)
+    equipped_weapon: Optional[WeaponType] = None
+    primary_spell: Optional[Spell] = None
+    secondary_spell: Optional[Spell] = None
+    bonus_option: str = "a"  # "a", "b", "c", or "d"
+    bonus_weapon_target: Optional[WeaponType] = None
 
 @dataclass
 class Character:

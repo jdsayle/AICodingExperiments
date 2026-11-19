@@ -1,9 +1,9 @@
 {
-  "name": "qwerasdf",
-  "class_type": "HERO",
+  "name": "asfrweqrfdsa",
+  "class_type": "WITCH_HUNTER",
   "level": 1,
   "experience": 0,
-  "created_date": "2026-11-14",
+  "created_date": "2026-11-15",
   "death_date": null,
   "max_hp": 8,
   "current_hp": 8,
@@ -18,21 +18,31 @@
       "skill_bonus": 0
     },
     {
-      "name": "BOW_AND_ARROWS",
+      "name": "DAGGER",
       "is_magical": false,
       "combat_bonus": 0,
       "skill_bonus": 0
     }
   ],
-  "equipped_weapon_index": 1,
+  "equipped_weapon_index": null,
   "items": [],
-  "spells": [],
+  "spells": [
+    {
+      "name": "Dispell Undead",
+      "cost": 1,
+      "is_combat_spell": true,
+      "description": "Kills undead target (Cost: 1 Skeletons/Bats, 3 Mummies, 4 Vampires).",
+      "allowed_classes": [
+        "WITCH_HUNTER"
+      ]
+    }
+  ],
   "bezants": 0,
   "gems": 0,
   "is_alive": true,
   "is_retired": false,
-  "is_in_party": true,
+  "is_in_party": false,
   "is_npc": false,
-  "combat_row": 1,
+  "combat_row": 0,
   "combat_col": 0
 }

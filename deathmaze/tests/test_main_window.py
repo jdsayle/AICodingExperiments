@@ -1,9 +1,10 @@
 import pytest
 from pathlib import Path
 from PySide6.QtWidgets import QMessageBox
-from app.models.enums import ClassType
+from app.models.enums import ClassType, WeaponType
 from app.services.repository import JsonCharacterRepository
 from app.services.character_manager import CharacterManager
+from app.models.character import CharacterCreationConfig
 from app.services.theme_manager import ThemeManager
 from views.main_window import MainWindow
 
@@ -38,7 +39,13 @@ def test_main_window_initialization(qtbot, manager):
 
 def test_main_window_character_deletion_flow(qtbot, manager, monkeypatch):
     """Verify character deletion workflow and QMessageBox confirmation popup."""
-    manager.create_character("Conan", ClassType.HERO)
+    config = CharacterCreationConfig(
+        name="Conan",  # Match the character being added to party
+        class_type=ClassType.HERO,
+        selected_weapons=[WeaponType.SWORD],
+        equipped_weapon=WeaponType.SWORD
+    )
+    manager.create_character_from_config(config)
     manager.add_to_party("Conan")  # Ensure Conan is in the active party
     
     window = MainWindow(manager)
