@@ -1,19 +1,21 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-    QPushButton, QTabWidget, QScrollArea, QLabel, QMessageBox, QGridLayout, QGraphicsOpacityEffect
+    QPushButton, QTabWidget, QScrollArea, QLabel, QMessageBox, QGridLayout, QDialog
 )
-from PySide6.QtGui import QKeyEvent, QPixmap
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup
+from PySide6.QtGui import QKeyEvent
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QTimer
 from app.services.character_manager import CharacterManager
+from app.services.rules_engine import RulesEngine
 from views.widgets.character_card import CharacterCardWidget
 from views.widgets.empty_slot_widget import EmptySlotWidget
 from views.widgets.create_character_tab import CreateCharacterTab
 from views.widgets.character_inspector import CharacterInspectorWidget
-from views.widgets.grid_dashboard import ActivePartyDashboardGrid
+from views.widgets.item_picker_dialog import AddItemDialog
+
 
 class ActivePartyDashboardGrid(QWidget):
     """Grid container managing drops, dual-card swaps, and 275ms sliding animations across the 3x3 tactical layout."""
-    
+
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
         self.main_window = main_window
@@ -32,12 +34,11 @@ class ActivePartyDashboardGrid(QWidget):
     def dropEvent(self, event) -> None:
         source_name = event.mimeData().text()
         pos = event.position().toPoint()
-        
+
         target_widget = None
         target_row, target_col = -1, -1
         source_widget = None
 
-        # Find source widget and target widget/slot under drop coordinates
         for row in range(3):
             for col in range(3):
                 item = self.grid.itemAtPosition(row, col)
@@ -45,7 +46,7 @@ class ActivePartyDashboardGrid(QWidget):
                     widget = item.widget()
                     if isinstance(widget, CharacterCardWidget) and widget.character.name == source_name:
                         source_widget = widget
-                    
+
                     widget_pos = widget.mapFrom(self, pos)
                     if widget.rect().contains(widget_pos):
                         target_widget = widget
@@ -61,31 +62,26 @@ class ActivePartyDashboardGrid(QWidget):
             event.ignore()
             return
 
-        # --- CASE A: CARD-TO-CARD SWAP (DUAL PARALLEL SLIDING ANIMATION) ---
         if isinstance(target_widget, CharacterCardWidget):
             start_pos_a = source_widget.pos()
             end_pos_a = target_widget.pos()
-            
+
             start_pos_b = target_widget.pos()
             end_pos_b = source_widget.pos()
 
-            # Create visual overlay for Card 1 (Dragged card)
             overlay_a = QLabel(self)
             overlay_a.setPixmap(source_widget.grab())
             overlay_a.setGeometry(start_pos_a.x(), start_pos_a.y(), source_widget.width(), source_widget.height())
             overlay_a.show()
 
-            # Create visual overlay for Card 2 (Target card being displaced)
             overlay_b = QLabel(self)
             overlay_b.setPixmap(target_widget.grab())
             overlay_b.setGeometry(start_pos_b.x(), start_pos_b.y(), target_widget.width(), target_widget.height())
             overlay_b.show()
 
-            # Hide both original cards during flight
             source_widget.hide()
             target_widget.hide()
 
-            # Setup animations for both cards (~275ms cinematic feel)
             anim_a = QPropertyAnimation(overlay_a, b"pos", self)
             anim_a.setDuration(275)
             anim_a.setStartValue(start_pos_a)
@@ -98,7 +94,6 @@ class ActivePartyDashboardGrid(QWidget):
             anim_b.setEndValue(end_pos_b)
             anim_b.setEasingCurve(QEasingCurve.OutCubic)
 
-            # Group them to run in parallel
             self.anim_group = QParallelAnimationGroup(self)
             self.anim_group.addAnimation(anim_a)
             self.anim_group.addAnimation(anim_b)
@@ -111,7 +106,6 @@ class ActivePartyDashboardGrid(QWidget):
             self.anim_group.finished.connect(on_swap_finished)
             self.anim_group.start()
 
-        # --- CASE B: MOVE TO EMPTY SLOT (SINGLE SLIDING ANIMATION) ---
         elif isinstance(target_widget, EmptySlotWidget):
             start_pos = source_widget.pos()
             end_pos = target_widget.pos()
@@ -166,6 +160,10 @@ class MainWindow(QMainWindow):
         self.toggle_to_tavern_btn.clicked.connect(self._move_to_tavern)
         sidebar_layout.addWidget(self.toggle_to_tavern_btn)
 
+        self.leave_maze_btn = QPushButton("Leave Maze")
+        self.leave_maze_btn.clicked.connect(self._on_leave_maze_clicked)
+        sidebar_layout.addWidget(self.leave_maze_btn)
+
         sidebar_layout.addWidget(QLabel("<b>TAVERN / TOWN (Stable)</b>"))
         self.tavern_list = QListWidget()
         self.tavern_list.itemClicked.connect(self._on_list_item_clicked)
@@ -190,12 +188,10 @@ class MainWindow(QMainWindow):
         # --- RIGHT TABBED WORKSPACE ---
         self.tabs = QTabWidget()
 
-       
-        # Tab 1: Active Party Dashboard (3x3 Tactical Grid)
         self.dashboard_tab = QWidget()
         self.dashboard_scroll = QScrollArea()
         self.dashboard_scroll.setWidgetResizable(True)
-        
+
         self.dashboard_container = ActivePartyDashboardGrid(self)
         self.dashboard_grid = self.dashboard_container.grid
         self.dashboard_scroll.setWidget(self.dashboard_container)
@@ -203,8 +199,7 @@ class MainWindow(QMainWindow):
         dash_layout = QVBoxLayout(self.dashboard_tab)
         dash_layout.addWidget(self.dashboard_scroll)
         self.tabs.addTab(self.dashboard_tab, "Active Party Dashboard")
-       
-        # Tab 2: Detailed Character Inspector
+
         self.inspector_tab = QWidget()
         self.inspector_layout = QVBoxLayout(self.inspector_tab)
         self.inspector_widget = CharacterInspectorWidget(self.manager)
@@ -214,12 +209,48 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tabs)
 
         self.refresh_character_lists()
+        self.showNormal()
 
-        # --- STARTUP DISPLAY MODE ---
-        self.showNormal()  # <--- Windowed view for app testing. FullScreen used for PROD.
+    def _on_leave_maze_clicked(self) -> None:
+        all_chars = self.manager.list_characters()
+        reset_chars = RulesEngine.leave_maze(all_chars)
+        for char in reset_chars:
+            self.manager.repository.save(char)
+        self.refresh_character_lists()
+        if self.inspector_widget.current_character:
+            refreshed = self.manager.get_character(self.inspector_widget.current_character.name)
+            if refreshed:
+                self.inspector_widget.set_character(refreshed)
+
+    def _on_card_add_item_requested(self, char_name: str) -> None:
+            char = self.manager.get_character(char_name)
+            if not char:
+                QMessageBox.warning(self, "Character Not Found", f"Could not find character '{char_name}'.")
+                return
+
+            party = [c for c in self.manager.list_characters() if getattr(c, "is_in_party", False)]
+            dialog = AddItemDialog(char, party=party, parent=self)
+            if dialog.exec() == QDialog.Accepted and dialog.selected_definition is not None:
+                try:
+                    RulesEngine.grant_item(char, dialog.selected_definition, party=party)
+                    self.manager.repository.save(char)
+                except ValueError as e:
+                    QMessageBox.warning(self, "Cannot Add Item", str(e))
+                    return
+                except Exception as e:
+                    QMessageBox.critical(self, "Save Error", f"Failed to save '{char.name}' after granting item: {e}")
+                    return
+
+                if (
+                    self.inspector_widget.current_character is not None
+                    and self.inspector_widget.current_character.name == char.name
+                ):
+                    refreshed = self.manager.get_character(char.name) or char
+                    self.inspector_widget.set_character(refreshed)
+
+                QTimer.singleShot(0, self.refresh_character_lists)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        """Toggles out of fullscreen mode when Escape is pressed."""
         if event.key() == Qt.Key_Escape:
             if self.isFullScreen():
                 self.showNormal()
@@ -228,7 +259,6 @@ class MainWindow(QMainWindow):
         super().keyPressEvent(event)
 
     def refresh_character_lists(self) -> None:
-        """Reloads active party and tavern lists, rendering the 3x3 tactical grid."""
         self.active_list.clear()
         self.tavern_list.clear()
         characters = self.manager.list_characters()
@@ -281,6 +311,7 @@ class MainWindow(QMainWindow):
                     char = occupied_slots[(row, col)]
                     card = CharacterCardWidget(char)
                     card.inspect_requested.connect(self._inspect_character_by_name)
+                    card.add_item_requested.connect(self._on_card_add_item_requested)
                     self.dashboard_grid.addWidget(card, row, col)
                 else:
                     empty_slot = EmptySlotWidget(row, col)
@@ -313,12 +344,7 @@ class MainWindow(QMainWindow):
         self.manager.repository.save(char)
         self.refresh_character_lists()
 
-    # --- CHARACTER CREATION TAB MANAGEMENT ---
-
-# --- CHARACTER CREATION TAB MANAGEMENT ---
-
     def open_create_character_tab(self) -> None:
-        """Dynamically opens or focuses the Create Character tab in the right-side tab widget."""
         for index in range(self.tabs.count()):
             widget = self.tabs.widget(index)
             if isinstance(widget, CreateCharacterTab):
@@ -333,7 +359,6 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(tab_index)
 
     def close_create_character_tab(self) -> None:
-        """Closes and removes the Create Character tab, restoring focus to the Active Party Dashboard."""
         for index in range(self.tabs.count()):
             widget = self.tabs.widget(index)
             if isinstance(widget, CreateCharacterTab):
@@ -344,7 +369,6 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(0)
 
     def handle_character_created(self, char_name: str) -> None:
-        """Routes newly saved characters to Active Party (< 6 PCs) or Tavern/Town pool, then refreshes UI."""
         char = self.manager.get_character(char_name)
         if not char:
             self.close_create_character_tab()
@@ -364,7 +388,6 @@ class MainWindow(QMainWindow):
         self.refresh_character_lists()
 
     def _assign_first_available_grid_slot(self, char, all_chars) -> None:
-        """Helper to place a newly recruited PC into an empty grid slot (3x3)."""
         occupied = {(c.combat_row, c.combat_col) for c in all_chars if c.is_in_party and c.name != char.name}
         for r in range(3):
             for c in range(3):
@@ -415,38 +438,9 @@ class MainWindow(QMainWindow):
         self._inspect_character_by_name(char_name)
 
     def _inspect_character_by_name(self, name: str) -> None:
-        """Populates Detailed Character Inspector widget with full stats and switches tab."""
         char = self.manager.get_character(name)
         if not char:
             return
 
-        # Pass the character to our interactive CharacterInspectorWidget
         self.inspector_widget.set_character(char)
-        self.tabs.setCurrentIndex(1)  # Switch to Detailed Inspector tab
-
-        formatted_weapons = []
-        for idx, w in enumerate(char.weapons):
-            w_name = w.name.name.replace('_', ' ').title() if hasattr(w.name, 'name') else str(w.name)
-            bonus_str = f" (+{w.skill_bonus})" if getattr(w, 'skill_bonus', 0) > 0 else ""
-            equipped_str = " [Equipped]" if getattr(char, 'equipped_weapon_index', None) == idx else ""
-            formatted_weapons.append(f"{w_name}{bonus_str}{equipped_str}")
-
-        weapons_str = ", ".join(formatted_weapons) if formatted_weapons else "None"
-        items_str = ", ".join(i.name for i in char.items) or "None"
-        spells_str = ", ".join(s.name.replace('_', ' ').title() if hasattr(s, 'name') else str(s) for s in char.spells) or "None"
-        location = "Active Party" if char.is_in_party else "Tavern / Town Stable"
-
-        details = f"""
-        <h2>{char.name} ({char.class_type.name.replace('_', ' ').title()})</h2>
-        <p><b>Location:</b> {location} | <b>Combat Row:</b> Row {char.combat_row + 1}, Col {char.combat_col + 1}</p>
-        <p><b>Level:</b> {char.level} | <b>XP:</b> {char.experience} | <b>Created:</b> {char.created_date}</p>
-        <hr>
-        <p><b>Hit Points:</b> {char.effective_hp} / {char.max_hp} (Magic Wounds: {char.magic_wounds})</p>
-        <p><b>Magic Resistance:</b> {char.magic_resistance} | <b>Detrap Skill:</b> {char.detrap_skill}</p>
-        <p><b>Bezants:</b> {char.bezants} | <b>Gems:</b> {char.gems}</p>
-        <hr>
-        <p><b>Weapons & Skill Bonuses:</b> {weapons_str}</p>
-        <p><b>Inventory Items:</b> {items_str}</p>
-        <p><b>Spells:</b> {spells_str}</p>
-        """
         self.tabs.setCurrentIndex(1)

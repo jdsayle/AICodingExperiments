@@ -1,9 +1,51 @@
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
-from app.models.character import Character
+from typing import Any, Dict, List, Optional
+from app.models.character import Character, Item
+from app.models.enums import ItemType
 from app.services.persistence import CharacterSerializer
+
+
+def _serialize_item(item: Item) -> Dict[str, Any]:
+    item_type_val = item.item_type.value if isinstance(item.item_type, ItemType) else str(item.item_type)
+    uses = None if item.item_type in {ItemType.RING, ItemType.MEDALLION} else item.uses_remaining
+    return {
+        "name": item.name,
+        "item_type": item_type_val,
+        "effect": item.effect,
+        "uses_remaining": uses,
+        "used_this_game": bool(getattr(item, "used_this_game", False)),
+    }
+
+
+def _deserialize_item(raw: Dict[str, Any]) -> Item:
+    raw_type = raw.get("item_type", "")
+    if isinstance(raw_type, ItemType):
+        item_type = raw_type
+    else:
+        try:
+            item_type = ItemType(raw_type)
+        except ValueError:
+            item_type = ItemType[str(raw_type).upper().replace(" ", "_")]
+
+    effect = raw.get("effect", raw.get("effect_description", ""))
+
+    if item_type in {ItemType.RING, ItemType.MEDALLION}:
+        uses: Optional[int] = None
+    else:
+        raw_uses = raw.get("uses_remaining")
+        if raw_uses is None:
+            raw_uses = raw.get("charges_remaining")
+        uses = int(raw_uses) if raw_uses is not None else (1 if item_type == ItemType.MAGIC_RING else None)
+
+    return Item(
+        name=raw["name"],
+        item_type=item_type,
+        effect=effect,
+        uses_remaining=uses,
+        used_this_game=bool(raw.get("used_this_game", False)),
+    )
 
 
 class BaseCharacterRepository(ABC):
@@ -45,6 +87,7 @@ class JsonCharacterRepository(BaseCharacterRepository):
     def save(self, character: Character) -> None:
         file_path = self._get_file_path(character.name)
         data = CharacterSerializer.to_dict(character)
+        data["items"] = [_serialize_item(item) for item in getattr(character, "items", [])]
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
@@ -55,8 +98,12 @@ class JsonCharacterRepository(BaseCharacterRepository):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return CharacterSerializer.from_dict(data)
-        except (json.JSONDecodeError, KeyError):
+                character = CharacterSerializer.from_dict(data)
+                if character is not None:
+                    raw_items = data.get("items", [])
+                    character.items = [_deserialize_item(entry) for entry in raw_items]
+                return character
+        except (json.JSONDecodeError, KeyError, ValueError):
             return None
 
     def list_all(self) -> List[Character]:

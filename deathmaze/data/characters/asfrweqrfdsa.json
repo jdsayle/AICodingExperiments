@@ -25,7 +25,14 @@
     }
   ],
   "equipped_weapon_index": null,
-  "items": [],
+  "items": [
+    {
+      "name": "Neutralize Poison",
+      "item_type": 5,
+      "effect": "Cancels Poison Effects",
+      "uses_remaining": 1
+    }
+  ],
   "spells": [
     {
       "name": "Dispell Undead",
@@ -41,7 +48,7 @@
   "gems": 0,
   "is_alive": true,
   "is_retired": false,
-  "is_in_party": false,
+  "is_in_party": true,
   "is_npc": false,
   "combat_row": 0,
   "combat_col": 0

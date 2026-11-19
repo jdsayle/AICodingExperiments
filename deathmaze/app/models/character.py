@@ -15,8 +15,17 @@ class Weapon:
 class Item:
     name: str
     item_type: ItemType
-    effect_description: str = ""
-    charges_remaining: int = 0
+    effect: str = ""
+    uses_remaining: Optional[int] = None
+    used_this_game: bool = False
+
+    @property
+    def effect_description(self) -> str:
+        return self.effect
+
+    @effect_description.setter
+    def effect_description(self, value: str) -> None:
+        self.effect = value
 
 
 @dataclass
@@ -46,6 +55,7 @@ class SpellcasterMixin:
     def is_magic_user(self) -> bool:
         return True
 
+
 @dataclass
 class CharacterCreationConfig:
     name: str
@@ -57,32 +67,40 @@ class CharacterCreationConfig:
     bonus_option: str = "a"  # "a", "b", "c", or "d"
     bonus_weapon_target: Optional[WeaponType] = None
 
+
 @dataclass
 class Character:
+    MAGIC_USER_CLASSES = frozenset({
+        ClassType.WIZARD,
+        ClassType.WITCH_HUNTER,
+        ClassType.HEALER,
+        ClassType.PEACE_MAKER,
+    })
+
     name: str
     class_type: ClassType
     level: int = 1
     experience: int = 0
     created_date: str = ""
     death_date: Optional[str] = None
-    
+
     # Health & Magic
     max_hp: int = 10
     current_hp: int = 10
     magic_wounds: int = 0
     magic_resistance: int = 0
     detrap_skill: int = 0
-    
+
     # Equipment & Inventory
     weapons: List[Weapon] = field(default_factory=list)
     equipped_weapon_index: Optional[int] = None
     items: List[Item] = field(default_factory=list)
     spells: List[Spell] = field(default_factory=list)
-    
+
     # Currency
     bezants: int = 0
     gems: int = 0
-    
+
     # Status Flags & Tactical Placement
     is_alive: bool = True
     is_retired: bool = False
@@ -97,7 +115,4 @@ class Character:
 
     @property
     def is_magic_user(self) -> bool:
-        return self.class_type in {
-            ClassType.WIZARD, ClassType.WITCH_HUNTER, 
-            ClassType.HEALER, ClassType.PEACE_MAKER
-        }
+        return self.class_type in self.MAGIC_USER_CLASSES

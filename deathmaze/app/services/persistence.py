@@ -5,6 +5,25 @@ from app.models.character import Character, Weapon, Item, Spell
 from app.models.enums import ClassType, ItemType, WeaponType
 
 
+def _normalize_item_type(raw_type: Any) -> ItemType:
+    if isinstance(raw_type, ItemType):
+        return raw_type
+    name_str = str(raw_type).strip().upper().replace(" ", "_")
+    if name_str in ItemType.__members__:
+        return ItemType[name_str]
+    for member in ItemType:
+        if member.name.lower() == str(raw_type).strip().lower():
+            return member
+    raise KeyError(f"Unknown ItemType: {raw_type}")
+
+def _normalize_uses_remaining(item_type: ItemType, raw_uses: Any) -> int | None:
+    if item_type in {ItemType.RING, ItemType.MEDALLION}:
+        return None
+    if raw_uses is None:
+        return 1 if item_type == ItemType.MAGIC_RING else None
+    return int(raw_uses)
+
+
 class CharacterSerializer:
     """Handles serialization and deserialization of Character domain models to/from JSON."""
 
@@ -12,8 +31,7 @@ class CharacterSerializer:
     def to_dict(character: Character) -> Dict[str, Any]:
         data = asdict(character)
         data["class_type"] = character.class_type.name
-        
-        # Ensure created_date and death_date are cleanly saved as YYYY-MM-DD
+
         if data.get("created_date"):
             data["created_date"] = data["created_date"][:10]
         if data.get("death_date"):
@@ -22,7 +40,9 @@ class CharacterSerializer:
         for weapon in data["weapons"]:
             weapon["name"] = WeaponType(weapon["name"]).name if isinstance(weapon["name"], WeaponType) else weapon["name"]
         for item in data["items"]:
-            item["item_type"] = ItemType(item["item_type"]).name if isinstance(item["item_type"], ItemType) else item["item_type"]
+            it = _normalize_item_type(item["item_type"])
+            item["item_type"] = it.name
+            item["uses_remaining"] = _normalize_uses_remaining(it, item.get("uses_remaining"))
         for spell in data["spells"]:
             spell["allowed_classes"] = [
                 c.name if isinstance(c, ClassType) else c for c in spell["allowed_classes"]
@@ -41,15 +61,30 @@ class CharacterSerializer:
             for w in data.get("weapons", [])
         ]
 
-        items = [
-            Item(
-                name=i["name"],
-                item_type=ItemType[i["item_type"]],
-                effect_description=i.get("effect_description", ""),
-                charges_remaining=i.get("charges_remaining", 0)
+        items = []
+        for raw_item in data.get("items", []):
+            if not isinstance(raw_item, dict) or "name" not in raw_item or "item_type" not in raw_item:
+                continue
+            try:
+                it = _normalize_item_type(raw_item["item_type"])
+            except KeyError:
+                continue
+
+            raw_uses = raw_item.get("uses_remaining")
+            if raw_uses is None:
+                raw_uses = raw_item.get("charges_remaining")
+
+            uses = _normalize_uses_remaining(it, raw_uses)
+            effect_val = raw_item.get("effect", raw_item.get("effect_description", ""))
+            items.append(
+                Item(
+                    name=str(raw_item["name"]),
+                    item_type=it,
+                    effect=str(effect_val) if effect_val is not None else "",
+                    uses_remaining=uses,
+                    used_this_game=bool(raw_item.get("used_this_game", False)),
+                )
             )
-            for i in data.get("items", [])
-        ]
 
         spells = [
             Spell(

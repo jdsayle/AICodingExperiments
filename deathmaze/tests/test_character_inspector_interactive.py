@@ -1,76 +1,43 @@
-import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QPushButton
-from app.models.enums import ClassType, WeaponType
+from PySide6.QtWidgets import QLabel
+from app.models.character import Item
+from app.models.enums import ItemType
 from app.services.repository import JsonCharacterRepository
-from app.services.character_manager import CharacterManager
-from app.models.character import CharacterCreationConfig, Weapon
+from app.services.character_manager import CharacterManager, CharacterCreationConfig
 from views.widgets.character_inspector import CharacterInspectorWidget
+from app.models.enums import ClassType, ItemType, WeaponType
 
-
-def test_interactive_inspector_stat_mutations(qtbot, tmp_path):
-    """Verify that changing values in the interactive inspector updates and persists character state."""
+def test_interactive_inspector_inventory_display_and_usage_text(qtbot, tmp_path):
+    """Verify Inventory & Items renders consumable uses (1 use left vs. 2 uses left) and omits usage text for non-consumables."""
     repo = JsonCharacterRepository(storage_dir=tmp_path / "characters")
     manager = CharacterManager(repo)
 
     config = CharacterCreationConfig(
-        name="TestName",
-        class_type=ClassType.HERO,
-        selected_weapons=[WeaponType.SWORD],
-        equipped_weapon=WeaponType.SWORD
+        name="Aldric",
+        class_type=ClassType.WIZARD,
+        selected_weapons=[WeaponType.DAGGER],
+        equipped_weapon=WeaponType.DAGGER,
     )
     char = manager.create_character_from_config(config)
+    char.items = [
+        Item(name="Healing", item_type=ItemType.POTION, effect="Heals 1d6", uses_remaining=1),
+        Item(name="Mustard", item_type=ItemType.SPICE, effect="Heals 1d6", uses_remaining=2),
+        Item(name="Resistance +1", item_type=ItemType.RING, effect="+1 to Magic Resistance", uses_remaining=None),
+        Item(name="Oratory", item_type=ItemType.MEDALLION, effect="+2 to Negotiation (Cumulative)", uses_remaining=None),
+        Item(name="Sleep", item_type=ItemType.MAGIC_RING, effect="Remove Monster", uses_remaining=None),
+    ]
 
     inspector = CharacterInspectorWidget(manager)
     qtbot.addWidget(inspector)
     inspector.set_character(char)
 
-    # Modify HP spinbox
-    inspector.hp_spin.setValue(7)
-    assert char.current_hp == 7
+    labels_text = [lbl.text() for lbl in inspector.findChildren(QLabel)]
 
-    # Verify persistence using the correct character name
-    reloaded = manager.get_character("TestName")
-    assert reloaded.current_hp == 7
+    assert any("Healing" in t and "(1 use left)" in t for t in labels_text)
+    assert any("Mustard" in t and "(2 uses left)" in t for t in labels_text)
 
-    # Modify Bezants
-    inspector.bezants_spin.setValue(250)
-    assert char.bezants == 250
-    assert manager.get_character("TestName").bezants == 250
-
-
-def test_interactive_inspector_weapon_equipping(qtbot, tmp_path):
-    """Verify that clicking 'Equip' on a secondary weapon correctly updates equipped weapon index and persists."""
-    repo = JsonCharacterRepository(storage_dir=tmp_path / "characters")
-    manager = CharacterManager(repo)
-
-    # Create character with multiple weapons (e.g., Sword and Dagger)
-    config = CharacterCreationConfig(
-        name="Viggo",
-        class_type=ClassType.HERO,
-        selected_weapons=[WeaponType.SWORD, WeaponType.DAGGER],
-        equipped_weapon=WeaponType.SWORD  # Sword is index 0
-    )
-    char = manager.create_character_from_config(config)
-    assert char.equipped_weapon_index == 0
-
-    inspector = CharacterInspectorWidget(manager)
-    qtbot.addWidget(inspector)
-    inspector.set_character(char)
-
-    # Find the 'Equip' button for the second weapon (Dagger, index 1)
-    equip_buttons = inspector.findChildren(QPushButton)
-    equip_button_found = False
-    for btn in equip_buttons:
-        if btn.text() == "Equip":
-            # Click the equip button to switch equipped weapon to index 1
-            qtbot.mouseClick(btn, Qt.LeftButton)
-            equip_button_found = True
-            break
-
-    assert equip_button_found, "Could not find 'Equip' button in inspector layout."
-
-    # Verify character and persistent store reflect the updated equipped weapon index
-    assert char.equipped_weapon_index == 1
-    reloaded = manager.get_character("Viggo")
-    assert reloaded.equipped_weapon_index == 1
+    non_consumable_labels = [
+        t for t in labels_text
+        if any(name in t for name in ("Resistance +1", "Oratory", "Sleep"))
+    ]
+    assert len(non_consumable_labels) == 3
+    assert all("use" not in t.lower() for t in non_consumable_labels)

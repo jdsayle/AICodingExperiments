@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QGroupBox, QApplication, QSizePolicy, QGraphicsOpacityEffect
 )
 from PySide6.QtCore import Signal, QSize, QMimeData, Qt, QPoint
@@ -10,20 +10,19 @@ from app.models.character import Character
 class CharacterCardWidget(QWidget):
     """Compact interactive visual summary card supporting drag-and-drop tactical reordering."""
     inspect_requested = Signal(str)
+    add_item_requested = Signal(str)
 
     def __init__(self, character: Character, parent=None):
         super().__init__(parent)
         self.character = character
         self._drag_start_position = QPoint()
 
-        # Strict fixed sizing (375x260) to prevent layout shrinkage
         self.setFixedSize(QSize(375, 260))
         self.setMinimumSize(375, 260)
         self.setMaximumSize(375, 260)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.setAcceptDrops(False)
 
-        # Setup opacity effect for 50% transparency cue during drag
         self.opacity_effect = QGraphicsOpacityEffect(self)
         self.opacity_effect.setOpacity(1.0)
         self.setGraphicsEffect(self.opacity_effect)
@@ -80,11 +79,23 @@ class CharacterCardWidget(QWidget):
         top_spells = ", ".join(s.name for s in character.spells[:2]) or "None"
         group_layout.addWidget(QLabel(f"<b>Spells:</b> {top_spells}"))
 
-        # View Full Sheet Button
+        # Action Buttons Row: View Full Sheet + Item
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 0, 0, 0)
+        btn_row.setSpacing(4)
+
         self.inspect_btn = QPushButton("View Full Sheet")
         self.inspect_btn.setFixedHeight(24)
         self.inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(character.name))
-        group_layout.addWidget(self.inspect_btn)
+
+        self.item_btn = QPushButton("Item")
+        self.item_btn.setFixedHeight(24)
+        self.item_btn.setFixedWidth(64)
+        self.item_btn.clicked.connect(lambda: self.add_item_requested.emit(character.name))
+
+        btn_row.addWidget(self.inspect_btn)
+        btn_row.addWidget(self.item_btn)
+        group_layout.addLayout(btn_row)
 
         layout.addWidget(self.group_box)
 
@@ -110,11 +121,6 @@ class CharacterCardWidget(QWidget):
         drag.setPixmap(pixmap)
         drag.setHotSpot(event.position().toPoint())
 
-        # Set original card to 50% opacity while dragging
         self.opacity_effect.setOpacity(0.5)
-
-        # Execute drag (blocks until dropped or cancelled)
         drag.exec(Qt.MoveAction)
-
-        # Immediately restore original card to 100% opacity when drag concludes
         self.opacity_effect.setOpacity(1.0)

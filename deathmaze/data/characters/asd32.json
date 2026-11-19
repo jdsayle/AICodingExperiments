@@ -12,7 +12,36 @@
   "detrap_skill": 0,
   "weapons": [],
   "equipped_weapon_index": null,
-  "items": [],
+  "items": [
+    {
+      "name": "Blast",
+      "item_type": 5,
+      "effect": "2 Damage to Monster (First Row)",
+      "uses_remaining": 1,
+      "used_this_game": false
+    },
+    {
+      "name": "Sleep",
+      "item_type": 5,
+      "effect": "Remove Monster",
+      "uses_remaining": 1,
+      "used_this_game": false
+    },
+    {
+      "name": "Blast",
+      "item_type": 5,
+      "effect": "2 Damage to Monster (First Row)",
+      "uses_remaining": 1,
+      "used_this_game": false
+    },
+    {
+      "name": "Mustard",
+      "item_type": 2,
+      "effect": "Heals 1d6",
+      "uses_remaining": 1,
+      "used_this_game": false
+    }
+  ],
   "spells": [
     {
       "name": "Blast",
