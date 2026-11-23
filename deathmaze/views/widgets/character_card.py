@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QGroupBox, QApplication, QSizePolicy, QGraphicsOpacityEffect
 )
-from PySide6.QtCore import Signal, QSize, QMimeData, Qt, QPoint
+from PySide6.QtCore import Signal, QSize, QMimeData, Qt, QPoint, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QDrag
 from app.models.character import Character
 
@@ -11,6 +11,7 @@ class CharacterCardWidget(QWidget):
     """Compact interactive visual summary card supporting drag-and-drop tactical reordering."""
     inspect_requested = Signal(str)
     add_item_requested = Signal(str)
+    charm_broken_requested = Signal(str)
 
     def __init__(self, character: Character, parent=None):
         super().__init__(parent)
@@ -30,21 +31,31 @@ class CharacterCardWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        role_badge = "[NPC]" if character.is_npc else "[PC]"
-        self.group_box = QGroupBox(f"{role_badge} {character.name} ({character.class_type.name.replace('_', ' ').title()})")
+        if character.is_npc:
+            title = f"[CHARMED] {character.name}"
+        else:
+            title = f"[PC] {character.name} ({character.class_type.name.replace('_', ' ').title()})"
+
+        self.group_box = QGroupBox(title)
         group_layout = QVBoxLayout(self.group_box)
         group_layout.setContentsMargins(6, 6, 6, 6)
         group_layout.setSpacing(3)
 
-        # Level & XP
-        info_layout = QHBoxLayout()
-        info_layout.setContentsMargins(0, 0, 0, 0)
-        info_layout.addWidget(QLabel(f"<b>Level:</b> {character.level}"))
-        info_layout.addWidget(QLabel(f"<b>XP:</b> {character.experience}"))
-        info_layout.addWidget(QLabel(f"<b>MR:</b> {character.magic_resistance}"))
-        if character.detrap_skill > 0:
-            info_layout.addWidget(QLabel(f"<b>Detrap:</b> {character.detrap_skill}"))
-        group_layout.addLayout(info_layout)
+        if character.is_npc:
+            info_layout = QHBoxLayout()
+            info_layout.setContentsMargins(0, 0, 0, 0)
+            info_layout.addWidget(QLabel(f"<b>Combat Strength:</b> {character.combat_strength}"))
+            info_layout.addStretch()
+            group_layout.addLayout(info_layout)
+        else:
+            info_layout = QHBoxLayout()
+            info_layout.setContentsMargins(0, 0, 0, 0)
+            info_layout.addWidget(QLabel(f"<b>Level:</b> {character.level}"))
+            info_layout.addWidget(QLabel(f"<b>XP:</b> {character.experience}"))
+            info_layout.addWidget(QLabel(f"<b>MR:</b> {character.magic_resistance}"))
+            if character.detrap_skill > 0:
+                info_layout.addWidget(QLabel(f"<b>Detrap:</b> {character.detrap_skill}"))
+            group_layout.addLayout(info_layout)
 
         # HP Bar
         hp_layout = QHBoxLayout()
@@ -57,47 +68,71 @@ class CharacterCardWidget(QWidget):
         hp_layout.addWidget(self.hp_bar)
         group_layout.addLayout(hp_layout)
 
-        # Equipped Weapon & Skill/Combat Bonus
-        weapon_display = "None"
-        if character.weapons and character.equipped_weapon_index is not None:
-            if 0 <= character.equipped_weapon_index < len(character.weapons):
-                w = character.weapons[character.equipped_weapon_index]
-                w_name = w.name.name.replace('_', ' ').title()
-                bonuses = []
-                if w.combat_bonus != 0:
-                    bonuses.append(f"C.Bonus: +{w.combat_bonus}")
-                if w.skill_bonus != 0:
-                    bonuses.append(f"Skill: +{w.skill_bonus}")
-                bonus_str = f" ({', '.join(bonuses)})" if bonuses else ""
-                weapon_display = f"{w_name}{bonus_str}"
-        elif character.weapons:
-            w = character.weapons[0]
-            weapon_display = w.name.name.replace('_', ' ').title()
-        group_layout.addWidget(QLabel(f"<b>Equipped:</b> {weapon_display}"))
+        # Weapons / Equipped summary
+        if character.is_npc:
+            w_names = [w.name.name.replace("_", " ").title() for w in character.weapons[:2]]
+            weapons_text = ", ".join(w_names) if w_names else "None"
+            group_layout.addWidget(QLabel(f"<b>Weapons:</b> {weapons_text}"))
+            group_layout.addStretch()
 
-        # Known Spells summary
-        top_spells = ", ".join(s.name for s in character.spells[:2]) or "None"
-        group_layout.addWidget(QLabel(f"<b>Spells:</b> {top_spells}"))
+            self.charm_broken_btn = QPushButton("Charm Broken")
+            self.charm_broken_btn.setFixedHeight(24)
+            self.charm_broken_btn.clicked.connect(self.fade_out_and_break_charm)
+            group_layout.addWidget(self.charm_broken_btn)
+        else:
+            weapon_display = "None"
+            if character.weapons and character.equipped_weapon_index is not None:
+                if 0 <= character.equipped_weapon_index < len(character.weapons):
+                    w = character.weapons[character.equipped_weapon_index]
+                    w_name = w.name.name.replace('_', ' ').title()
+                    bonuses = []
+                    if w.combat_bonus != 0:
+                        bonuses.append(f"C.Bonus: +{w.combat_bonus}")
+                    if w.skill_bonus != 0:
+                        bonuses.append(f"Skill: +{w.skill_bonus}")
+                    bonus_str = f" ({', '.join(bonuses)})" if bonuses else ""
+                    weapon_display = f"{w_name}{bonus_str}"
+            elif character.weapons:
+                w = character.weapons[0]
+                weapon_display = w.name.name.replace('_', ' ').title()
+            group_layout.addWidget(QLabel(f"<b>Equipped:</b> {weapon_display}"))
 
-        # Action Buttons Row: View Full Sheet + Item
-        btn_row = QHBoxLayout()
-        btn_row.setContentsMargins(0, 0, 0, 0)
-        btn_row.setSpacing(4)
+            top_spells = ", ".join(s.name for s in character.spells[:2]) or "None"
+            group_layout.addWidget(QLabel(f"<b>Spells:</b> {top_spells}"))
 
-        self.inspect_btn = QPushButton("View Full Sheet")
-        self.inspect_btn.setFixedHeight(24)
-        self.inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(character.name))
+            btn_row = QHBoxLayout()
+            btn_row.setContentsMargins(0, 0, 0, 0)
+            btn_row.setSpacing(4)
 
-        self.item_btn = QPushButton("Item")
-        self.item_btn.setFixedHeight(24)
-        self.item_btn.setFixedWidth(64)
-        self.item_btn.clicked.connect(lambda: self.add_item_requested.emit(character.name))
+            self.inspect_btn = QPushButton("View Full Sheet")
+            self.inspect_btn.setFixedHeight(24)
+            self.inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(character.name))
 
-        btn_row.addWidget(self.inspect_btn)
-        btn_row.addWidget(self.item_btn)
-        group_layout.addLayout(btn_row)
+            self.item_btn = QPushButton("Item")
+            self.item_btn.setFixedHeight(24)
+            self.item_btn.setFixedWidth(64)
+            self.item_btn.clicked.connect(lambda: self.add_item_requested.emit(character.name))
+
+            btn_row.addWidget(self.inspect_btn)
+            btn_row.addWidget(self.item_btn)
+            group_layout.addLayout(btn_row)
 
         layout.addWidget(self.group_box)
+
+    def fade_out_and_break_charm(self) -> None:
+        self.setEnabled(False)
+        anim = QPropertyAnimation(self.opacity_effect, b"opacity", self)
+        anim.setDuration(250)
+        anim.setStartValue(self.opacity_effect.opacity())
+        anim.setEndValue(0.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        def _finished() -> None:
+            self.charm_broken_requested.emit(self.character.name)
+
+        anim.finished.connect(_finished)
+        self._fade_anim = anim
+        anim.start()
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.LeftButton:

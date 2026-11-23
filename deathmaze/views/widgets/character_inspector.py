@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
-    QSpinBox, QPushButton, QGroupBox, QGridLayout, QMessageBox, QDialog
+    QSpinBox, QPushButton, QGroupBox, QGridLayout, QMessageBox, QDialog, QInputDialog
 )
 from PySide6.QtCore import Signal, Qt
 from app.models.character import Character, Item
@@ -94,7 +94,6 @@ class CharacterInspectorWidget(QWidget):
         # --- STATS & STEPPERS GROUP ---
         stats_group = QGroupBox("Combat Stats & Wealth")
         stats_grid = QGridLayout(stats_group)
-
         row_idx = 0
 
         stats_grid.addWidget(QLabel("Current HP:"), row_idx, 0)
@@ -105,31 +104,38 @@ class CharacterInspectorWidget(QWidget):
         stats_grid.addWidget(self.hp_spin, row_idx, 1)
         row_idx += 1
 
-        if char.is_magic_user:
-            stats_grid.addWidget(QLabel("Magic Wounds:"), row_idx, 0)
-            self.mw_spin = QSpinBox()
-            self.mw_spin.setRange(0, 50)
-            self.mw_spin.setValue(char.magic_wounds)
-            self.mw_spin.valueChanged.connect(self._on_mw_changed)
-            stats_grid.addWidget(self.mw_spin, row_idx, 1)
-            row_idx += 1
-        else:
+        if char.is_npc:
+            stats_grid.addWidget(QLabel("Combat Strength:"), row_idx, 0)
+            stats_grid.addWidget(QLabel(str(char.combat_strength)), row_idx, 1)
             self.mw_spin = None
+            self.bezants_spin = None
+            self.gems_spin = None
+        else:
+            if char.is_magic_user:
+                stats_grid.addWidget(QLabel("Magic Wounds:"), row_idx, 0)
+                self.mw_spin = QSpinBox()
+                self.mw_spin.setRange(0, 50)
+                self.mw_spin.setValue(char.magic_wounds)
+                self.mw_spin.valueChanged.connect(self._on_mw_changed)
+                stats_grid.addWidget(self.mw_spin, row_idx, 1)
+                row_idx += 1
+            else:
+                self.mw_spin = None
 
-        stats_grid.addWidget(QLabel("Bezants (Coins):"), row_idx, 0)
-        self.bezants_spin = QSpinBox()
-        self.bezants_spin.setRange(0, 99999)
-        self.bezants_spin.setValue(char.bezants)
-        self.bezants_spin.valueChanged.connect(self._on_bezants_changed)
-        stats_grid.addWidget(self.bezants_spin, row_idx, 1)
-        row_idx += 1
+            stats_grid.addWidget(QLabel("Bezants (Coins):"), row_idx, 0)
+            self.bezants_spin = QSpinBox()
+            self.bezants_spin.setRange(0, 99999)
+            self.bezants_spin.setValue(char.bezants)
+            self.bezants_spin.valueChanged.connect(self._on_bezants_changed)
+            stats_grid.addWidget(self.bezants_spin, row_idx, 1)
+            row_idx += 1
 
-        stats_grid.addWidget(QLabel("Gems:"), row_idx, 0)
-        self.gems_spin = QSpinBox()
-        self.gems_spin.setRange(0, 999)
-        self.gems_spin.setValue(char.gems)
-        self.gems_spin.valueChanged.connect(self._on_gems_changed)
-        stats_grid.addWidget(self.gems_spin, row_idx, 1)
+            stats_grid.addWidget(QLabel("Gems:"), row_idx, 0)
+            self.gems_spin = QSpinBox()
+            self.gems_spin.setRange(0, 999)
+            self.gems_spin.setValue(char.gems)
+            self.gems_spin.valueChanged.connect(self._on_gems_changed)
+            stats_grid.addWidget(self.gems_spin, row_idx, 1)
 
         self.container_layout.addWidget(stats_group)
         self.container_layout.addWidget(self._create_divider())
@@ -172,15 +178,35 @@ class CharacterInspectorWidget(QWidget):
         top_items_row.addWidget(self.add_item_btn)
         i_layout.addLayout(top_items_row)
 
-        char_items = getattr(char, "items", [])
-        if char_items:
-            for item in char_items:
-                i_row = QHBoxLayout()
-                i_row.addWidget(QLabel(self.format_item_display(item)))
-                i_row.addStretch()
-                i_layout.addLayout(i_row)
-        else:
-            i_layout.addWidget(QLabel("<i>No items carried.</i>"))
+        if not char.is_npc:
+            items_group = QGroupBox("Inventory & Items")
+            i_layout = QVBoxLayout(items_group)
+
+            top_items_row = QHBoxLayout()
+            top_items_row.addStretch()
+            self.add_item_btn = QPushButton("Item")
+            self.add_item_btn.clicked.connect(self._on_add_item_clicked)
+            top_items_row.addWidget(self.add_item_btn)
+            i_layout.addLayout(top_items_row)
+
+            char_items = getattr(char, "items", [])
+            if char_items:
+                for item in char_items:
+                    i_row = QHBoxLayout()
+                    i_row.addWidget(QLabel(self.format_item_display(item)))
+                    i_row.addStretch()
+
+                    use_btn = QPushButton("Use")
+                    use_btn.clicked.connect(lambda checked=False, it=item: self._on_use_item_clicked(it))
+                    i_row.addWidget(use_btn)
+
+                    trade_btn = QPushButton("Trade")
+                    trade_btn.clicked.connect(lambda checked=False, it=item: self._on_trade_item_clicked(it))
+                    i_row.addWidget(trade_btn)
+
+                    i_layout.addLayout(i_row)
+            else:
+                i_layout.addWidget(QLabel("<i>No items carried.</i>"))
 
         self.container_layout.addWidget(items_group)
 
@@ -220,6 +246,46 @@ class CharacterInspectorWidget(QWidget):
                 self.set_character(self.current_character)
             except ValueError as e:
                 QMessageBox.warning(self, "Cannot Add Item", str(e))
+    def _on_use_item_clicked(self, item: Item) -> None:
+        if not self.current_character:
+            return
+        try:
+            if item.item_type == ItemType.MAGIC_RING:
+                RulesEngine.use_magic_ring(self.current_character, item)
+            elif item.item_type in {ItemType.SPICE, ItemType.POTION}:
+                RulesEngine.consume_item_use(self.current_character, item)
+            self._save_changes()
+            self.set_character(self.current_character)
+        except ValueError as e:
+            QMessageBox.warning(self, "Cannot Use Item", str(e))
+
+    def _on_trade_item_clicked(self, item: Item) -> None:
+        if not self.current_character or self.current_character.is_npc:
+            return
+        recipients = [
+            c for c in self.manager.list_characters()
+            if c.name != self.current_character.name and not getattr(c, "is_npc", False)
+        ]
+        if not recipients:
+            QMessageBox.information(self, "No Recipients", "No non-Charmed characters available to trade with.")
+            return
+
+        names = [c.name for c in recipients]
+        target_name, ok = QInputDialog.getItem(self, "Trade Item", f"Trade '{item.name}' to:", names, 0, False)
+        if not ok or not target_name:
+            return
+
+        target_char = next((c for c in recipients if c.name == target_name), None)
+        if target_char is None:
+            return
+
+        try:
+            RulesEngine.trade_item(self.current_character, target_char, item)
+            self.manager.repository.save(target_char)
+            self._save_changes()
+            self.set_character(self.current_character)
+        except ValueError as e:
+            QMessageBox.warning(self, "Trade Failed", str(e))
 
     def _create_divider(self) -> QWidget:
         line = QWidget()

@@ -10,6 +10,7 @@
   "magic_wounds": 0,
   "magic_resistance": 1,
   "detrap_skill": 0,
+  "combat_strength": 0,
   "weapons": [
     {
       "name": "AXE",

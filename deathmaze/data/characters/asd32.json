@@ -10,6 +10,7 @@
   "magic_wounds": 0,
   "magic_resistance": 3,
   "detrap_skill": 0,
+  "combat_strength": 0,
   "weapons": [],
   "equipped_weapon_index": null,
   "items": [
@@ -54,7 +55,7 @@
     }
   ],
   "bezants": 400,
-  "gems": 444,
+  "gems": 443,
   "is_alive": true,
   "is_retired": false,
   "is_in_party": true,

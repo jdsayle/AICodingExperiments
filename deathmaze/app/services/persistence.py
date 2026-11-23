@@ -115,6 +115,7 @@ class CharacterSerializer:
             magic_wounds=data.get("magic_wounds", 0),
             magic_resistance=data.get("magic_resistance", 0),
             detrap_skill=data.get("detrap_skill", 0),
+            combat_strength=data.get("combat_strength", 0),
             weapons=weapons,
             equipped_weapon_index=data.get("equipped_weapon_index"),
             items=items,

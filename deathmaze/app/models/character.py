@@ -90,6 +90,7 @@ class Character:
     magic_wounds: int = 0
     magic_resistance: int = 0
     detrap_skill: int = 0
+    combat_strength: int = 0
 
     # Equipment & Inventory
     weapons: List[Weapon] = field(default_factory=list)

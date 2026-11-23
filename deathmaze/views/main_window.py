@@ -11,6 +11,7 @@ from views.widgets.empty_slot_widget import EmptySlotWidget
 from views.widgets.create_character_tab import CreateCharacterTab
 from views.widgets.character_inspector import CharacterInspectorWidget
 from views.widgets.item_picker_dialog import AddItemDialog
+from views.widgets.add_charmed_dialog import AddCharmedDialog
 
 
 class ActivePartyDashboardGrid(QWidget):
@@ -151,7 +152,7 @@ class MainWindow(QMainWindow):
         sidebar_layout = QVBoxLayout(sidebar_widget)
         sidebar_widget.setFixedWidth(280)
 
-        sidebar_layout.addWidget(QLabel("<b>ACTIVE PARTY (Max 6 PCs + 3 NPCs)</b>"))
+        sidebar_layout.addWidget(QLabel("<b>ACTIVE PARTY</b>"))
         self.active_list = QListWidget()
         self.active_list.itemClicked.connect(self._on_list_item_clicked)
         sidebar_layout.addWidget(self.active_list)
@@ -160,11 +161,15 @@ class MainWindow(QMainWindow):
         self.toggle_to_tavern_btn.clicked.connect(self._move_to_tavern)
         sidebar_layout.addWidget(self.toggle_to_tavern_btn)
 
+        self.add_charmed_btn = QPushButton("+ Add Charmed")
+        self.add_charmed_btn.clicked.connect(self._on_add_charmed_clicked)
+        sidebar_layout.addWidget(self.add_charmed_btn)
+
         self.leave_maze_btn = QPushButton("Leave Maze")
         self.leave_maze_btn.clicked.connect(self._on_leave_maze_clicked)
         sidebar_layout.addWidget(self.leave_maze_btn)
 
-        sidebar_layout.addWidget(QLabel("<b>TAVERN / TOWN (Stable)</b>"))
+        sidebar_layout.addWidget(QLabel("<b>TAVERN / TOWN</b>"))
         self.tavern_list = QListWidget()
         self.tavern_list.itemClicked.connect(self._on_list_item_clicked)
         sidebar_layout.addWidget(self.tavern_list)
@@ -211,16 +216,68 @@ class MainWindow(QMainWindow):
         self.refresh_character_lists()
         self.showNormal()
 
+    def _on_add_charmed_clicked(self) -> None:
+        all_chars = self.manager.list_characters()
+        active_party = [c for c in all_chars if getattr(c, "is_in_party", False)]
+        if len(active_party) >= 9:
+            QMessageBox.warning(
+                self,
+                "Party Full",
+                "The party is full (maximum of 9 total party members between PCs and NPCs).",
+            )
+            return
+
+        dialog = AddCharmedDialog(all_chars, parent=self)
+        if dialog.exec() == QDialog.Accepted and dialog.created_npc is not None:
+            latest_chars = self.manager.list_characters()
+            latest_active = [c for c in latest_chars if getattr(c, "is_in_party", False)]
+            if len(latest_active) >= 9:
+                QMessageBox.warning(
+                    self,
+                    "Party Full",
+                    "The party is full (maximum of 9 total party members between PCs and NPCs).",
+                )
+                return
+
+            open_slot = RulesEngine.get_first_open_party_slot(
+                latest_active,
+                exclude_name=dialog.created_npc.name,
+            )
+            if open_slot is None:
+                QMessageBox.warning(
+                    self,
+                    "Party Full",
+                    "The party is full (maximum of 9 total party members between PCs and NPCs).",
+                )
+                return
+
+            dialog.created_npc.combat_row, dialog.created_npc.combat_col = open_slot
+            self.manager.repository.save(dialog.created_npc)
+            self.refresh_character_lists()
+
+    def _on_charm_broken_requested(self, npc_name: str) -> None:
+        self.manager.delete_character(npc_name)
+        if (
+            self.inspector_widget.current_character is not None
+            and self.inspector_widget.current_character.name == npc_name
+        ):
+            self.inspector_widget.clear()
+        self.refresh_character_lists()
+
     def _on_leave_maze_clicked(self) -> None:
         all_chars = self.manager.list_characters()
-        reset_chars = RulesEngine.leave_maze(all_chars)
-        for char in reset_chars:
+        outcome = RulesEngine.leave_maze(all_chars)
+        for char in outcome["reset"]:
             self.manager.repository.save(char)
+        for npc in outcome["removed_npcs"]:
+            self.manager.delete_character(npc.name)
         self.refresh_character_lists()
         if self.inspector_widget.current_character:
             refreshed = self.manager.get_character(self.inspector_widget.current_character.name)
             if refreshed:
                 self.inspector_widget.set_character(refreshed)
+            else:
+                self.inspector_widget.clear()
 
     def _on_card_add_item_requested(self, char_name: str) -> None:
             char = self.manager.get_character(char_name)
@@ -300,6 +357,7 @@ class MainWindow(QMainWindow):
                         occupied_slots[(r, c)] = char
                         char.combat_row = r
                         char.combat_col = c
+                        self.manager.repository.save(char)
                         placed = True
                         break
                 if placed:
@@ -312,6 +370,7 @@ class MainWindow(QMainWindow):
                     card = CharacterCardWidget(char)
                     card.inspect_requested.connect(self._inspect_character_by_name)
                     card.add_item_requested.connect(self._on_card_add_item_requested)
+                    card.charm_broken_requested.connect(self._on_charm_broken_requested)
                     self.dashboard_grid.addWidget(card, row, col)
                 else:
                     empty_slot = EmptySlotWidget(row, col)
@@ -419,6 +478,17 @@ class MainWindow(QMainWindow):
         if not selected:
             return
         char_name = selected.data(Qt.UserRole)
+
+        all_chars = self.manager.list_characters()
+        active_party = [c for c in all_chars if getattr(c, "is_in_party", False)]
+        if len(active_party) >= 9:
+            QMessageBox.warning(
+                self,
+                "Party Full",
+                "The party is full (maximum of 9 total party members between PCs and NPCs).",
+            )
+            return
+
         try:
             self.manager.add_to_party(char_name)
             self.refresh_character_lists()
