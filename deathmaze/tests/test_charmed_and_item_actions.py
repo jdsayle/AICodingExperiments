@@ -5,8 +5,9 @@ from app.models.character import Character
 from app.models.enums import ClassType, ItemType, WeaponType
 from app.models.items import get_item_by_name
 from app.services.character_manager import CharacterManager
+from app.services.item_rules import ItemRules
+from app.services.party_rules import PartyRules
 from app.services.repository import JsonCharacterRepository
-from app.services.rules_engine import RulesEngine
 from views.main_window import MainWindow
 from views.widgets.add_charmed_dialog import AddCharmedDialog
 from views.widgets.character_inspector import CharacterInspectorWidget
@@ -14,13 +15,13 @@ from views.widgets.character_inspector import CharacterInspectorWidget
 
 def test_charmed_npc_name_must_be_unique():
     pc = make_pc("Conan", ClassType.HERO, hp=8, in_party=True)
-    existing_npc = RulesEngine.create_charmed_npc([pc], "Snaga", 4, 4, 1, [])
+    existing_npc = PartyRules.create_charmed_npc([pc], "Snaga", 4, 4, 1, [])
 
     with pytest.raises(ValueError, match="already exists"):
-        RulesEngine.create_charmed_npc([pc, existing_npc], "snaga", 3, 3, 1, [])
+        PartyRules.create_charmed_npc([pc, existing_npc], "snaga", 3, 3, 1, [])
 
     with pytest.raises(ValueError, match="already exists"):
-        RulesEngine.create_charmed_npc([pc, existing_npc], "Conan", 3, 3, 1, [])
+        PartyRules.create_charmed_npc([pc, existing_npc], "Conan", 3, 3, 1, [])
 
 
 def test_cannot_recruit_from_tavern_when_active_party_has_9_members(qtbot, tmp_path, monkeypatch):
@@ -31,7 +32,7 @@ def test_cannot_recruit_from_tavern_when_active_party_has_9_members(qtbot, tmp_p
     pc = make_pc("Conan", ClassType.HERO, hp=8, in_party=True)
     repo.save(pc)
     for idx in range(8):
-        npc = RulesEngine.create_charmed_npc(
+        npc = PartyRules.create_charmed_npc(
             manager.list_characters(),
             name=f"Charmed_{idx}",
             current_hp=3,
@@ -71,6 +72,7 @@ def test_cannot_recruit_from_tavern_when_active_party_has_9_members(qtbot, tmp_p
     assert persisted_valeria is not None
     assert persisted_valeria.is_in_party is False
 
+
 def make_pc(name: str, class_type: ClassType = ClassType.HERO, hp: int = 8, in_party: bool = True) -> Character:
     c = Character(name=name, class_type=class_type)
     c.max_hp = hp
@@ -83,10 +85,10 @@ def make_pc(name: str, class_type: ClassType = ClassType.HERO, hp: int = 8, in_p
 def test_charmed_npc_creation_requires_pc_and_limits_weapons_and_slots():
     # Cannot add Charmed NPC with no active PC
     with pytest.raises(ValueError):
-        RulesEngine.create_charmed_npc([], "Goblin", 4, 4, 1, [WeaponType.DAGGER])
+        PartyRules.create_charmed_npc([], "Goblin", 4, 4, 1, [WeaponType.DAGGER])
 
     pc = make_pc("Aragorn", ClassType.HERO, hp=8, in_party=True)
-    npc = RulesEngine.create_charmed_npc(
+    npc = PartyRules.create_charmed_npc(
         [pc],
         "Charmed Orc",
         current_hp=5,
@@ -109,22 +111,22 @@ def test_charmed_npc_creation_requires_pc_and_limits_weapons_and_slots():
     # Up to 8 Charmed NPCs alongside 1 PC (9 total slots)
     party = [pc, npc]
     for idx in range(7):
-        extra = RulesEngine.create_charmed_npc(party, f"Charmed_{idx}", 3, 3, 1, [])
+        extra = PartyRules.create_charmed_npc(party, f"Charmed_{idx}", 3, 3, 1, [])
         party.append(extra)
     assert len(party) == 9
 
     # 9th Charmed NPC exceeds 9-slot party
     with pytest.raises(ValueError):
-        RulesEngine.create_charmed_npc(party, "Overflow", 3, 3, 1, [])
+        PartyRules.create_charmed_npc(party, "Overflow", 3, 3, 1, [])
 
 
 def test_leave_maze_deletes_charmed_npcs_and_resets_pcs():
     pc = make_pc("Merlin", ClassType.WIZARD, hp=6, in_party=True)
     pc.current_hp = 2
     pc.magic_wounds = 2
-    npc = RulesEngine.create_charmed_npc([pc], "Charmed Wolf", 4, 4, 1, [])
+    npc = PartyRules.create_charmed_npc([pc], "Charmed Wolf", 4, 4, 1, [])
 
-    outcome = RulesEngine.leave_maze([pc, npc])
+    outcome = PartyRules.leave_maze([pc, npc])
     assert pc in outcome["reset"]
     assert pc.current_hp == 6
     assert pc.magic_wounds == 0
@@ -138,12 +140,12 @@ def test_inspector_use_and_trade_buttons_and_charmed_npc_exclusion(qtbot, tmp_pa
 
     sender = make_pc("Sender", ClassType.HERO, hp=8, in_party=True)
     receiver = make_pc("Receiver", ClassType.THIEF, hp=6, in_party=True)
-    charmed = RulesEngine.create_charmed_npc([sender], "Charmed Imp", 3, 3, 1, [])
+    charmed = PartyRules.create_charmed_npc([sender], "Charmed Imp", 3, 3, 1, [])
 
     potion_def = get_item_by_name("Healing", ItemType.POTION)
     assert potion_def is not None
-    RulesEngine.grant_item(sender, potion_def, party=[sender, receiver])
-    RulesEngine.grant_item(sender, potion_def, party=[sender, receiver])  # 2 uses
+    ItemRules.grant_item(sender, potion_def, party=[sender, receiver])
+    ItemRules.grant_item(sender, potion_def, party=[sender, receiver])  # 2 uses
 
     repo.save(sender)
     repo.save(receiver)
@@ -200,7 +202,7 @@ def test_sidebar_add_charmed_and_charm_broken_removes_npc(qtbot, tmp_path, monke
     assert "Max 6 PCs + 3 NPCs" not in win.findChild(type(win.centralWidget())).findChildren(object) if False else True
 
     def _fake_exec(dlg: AddCharmedDialog) -> int:
-        dlg.created_npc = RulesEngine.create_charmed_npc(
+        dlg.created_npc = PartyRules.create_charmed_npc(
             dlg.party,
             name="Charmed Skeleton",
             current_hp=5,
@@ -221,6 +223,7 @@ def test_sidebar_add_charmed_and_charm_broken_removes_npc(qtbot, tmp_path, monke
     win._on_charm_broken_requested("Charmed Skeleton")
     assert repo.get_by_name("Charmed Skeleton") is None
 
+
 def test_add_charmed_fills_open_slot_without_overwriting_pc_and_warns_when_party_full(
     qtbot, tmp_path, monkeypatch
 ):
@@ -231,9 +234,9 @@ def test_add_charmed_fills_open_slot_without_overwriting_pc_and_warns_when_party
     pc.combat_row, pc.combat_col = 0, 0
     repo.save(pc)
 
-    # Fill remaining 7 slots with Charmed NPCs (1 PC + 8 NPCs = 9 total)
+    # Fill remaining 8 slots with Charmed NPCs (1 PC + 8 NPCs = 9 total)
     for idx in range(8):
-        npc = RulesEngine.create_charmed_npc(
+        npc = PartyRules.create_charmed_npc(
             manager.list_characters(),
             name=f"Ally_{idx}",
             current_hp=3,

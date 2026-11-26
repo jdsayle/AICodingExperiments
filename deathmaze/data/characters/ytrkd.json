@@ -1,12 +1,12 @@
 {
-  "name": "asfrweqrfdsa",
+  "name": "ytrkd",
   "class_type": "WITCH_HUNTER",
   "level": 1,
   "experience": 0,
-  "created_date": "2026-11-15",
+  "created_date": "2026-11-26",
   "death_date": null,
-  "max_hp": 8,
-  "current_hp": 8,
+  "max_hp": 7,
+  "current_hp": 7,
   "magic_wounds": 0,
   "magic_resistance": 2,
   "detrap_skill": 0,
@@ -25,24 +25,18 @@
       "skill_bonus": 0
     }
   ],
-  "equipped_weapon_index": 0,
-  "items": [
-    {
-      "name": "Neutralize Poison",
-      "item_type": 5,
-      "effect": "Cancels Poison Effects",
-      "uses_remaining": 1,
-      "used_this_game": false
-    },
-    {
-      "name": "Potion Appraisal",
-      "item_type": 3,
-      "effect": "No Need to Test Potion (2 doses)",
-      "uses_remaining": null,
-      "used_this_game": false
-    }
-  ],
+  "equipped_weapon_index": null,
+  "items": [],
   "spells": [
+    {
+      "name": "Righteous Fury",
+      "cost": 2,
+      "is_combat_spell": true,
+      "description": "Berserk: +1 to hit in combat, +3 against Undead.",
+      "allowed_classes": [
+        "WITCH_HUNTER"
+      ]
+    },
     {
       "name": "Dispell Undead",
       "cost": 1,
@@ -60,5 +54,5 @@
   "is_in_party": true,
   "is_npc": false,
   "combat_row": 1,
-  "combat_col": 2
+  "combat_col": 0
 }
